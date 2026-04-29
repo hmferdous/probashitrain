@@ -14,16 +14,445 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance: {
+        Row: {
+          created_at: string
+          enrollment_id: string
+          id: string
+          marked_by: string | null
+          session_date: string
+          status: Database["public"]["Enums"]["attendance_status"]
+        }
+        Insert: {
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          marked_by?: string | null
+          session_date: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+        }
+        Update: {
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          marked_by?: string | null
+          session_date?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batches: {
+        Row: {
+          capacity: number
+          center_id: string
+          course_id: string
+          created_at: string
+          end_date: string
+          id: string
+          instructor_id: string | null
+          name: string
+          published_to_ami_probashi: boolean
+          schedule_notes: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["batch_status"]
+        }
+        Insert: {
+          capacity?: number
+          center_id: string
+          course_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          instructor_id?: string | null
+          name: string
+          published_to_ami_probashi?: boolean
+          schedule_notes?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["batch_status"]
+        }
+        Update: {
+          capacity?: number
+          center_id?: string
+          course_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          instructor_id?: string | null
+          name?: string
+          published_to_ami_probashi?: boolean
+          schedule_notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["batch_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batches_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batches_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courses: {
+        Row: {
+          center_id: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          duration_hours: number
+          id: string
+          price: number | null
+          title: string
+          trade_id: string
+        }
+        Insert: {
+          center_id: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_hours?: number
+          id?: string
+          price?: number | null
+          title: string
+          trade_id: string
+        }
+        Update: {
+          center_id?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          duration_hours?: number
+          id?: string
+          price?: number | null
+          title?: string
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrollments: {
+        Row: {
+          applied_at: string
+          batch_id: string
+          certificate_issued_at: string | null
+          id: string
+          performance_notes: string | null
+          performance_score: number | null
+          pipeline_status: Database["public"]["Enums"]["pipeline_status"]
+          source: Database["public"]["Enums"]["student_source"]
+          student_id: string
+        }
+        Insert: {
+          applied_at?: string
+          batch_id: string
+          certificate_issued_at?: string | null
+          id?: string
+          performance_notes?: string | null
+          performance_score?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
+          source?: Database["public"]["Enums"]["student_source"]
+          student_id: string
+        }
+        Update: {
+          applied_at?: string
+          batch_id?: string
+          certificate_issued_at?: string | null
+          id?: string
+          performance_notes?: string | null
+          performance_score?: number | null
+          pipeline_status?: Database["public"]["Enums"]["pipeline_status"]
+          source?: Database["public"]["Enums"]["student_source"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_sessions: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          instructor_id: string | null
+          is_live: boolean
+          jitsi_room: string
+          scheduled_at: string
+          title: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          instructor_id?: string | null
+          is_live?: boolean
+          jitsi_room: string
+          scheduled_at: string
+          title: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          instructor_id?: string | null
+          is_live?: boolean
+          jitsi_room?: string
+          scheduled_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_sessions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          center_id: string | null
+          created_at: string
+          full_name: string
+          id: string
+          phone: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          center_id?: string | null
+          created_at?: string
+          full_name: string
+          id: string
+          phone?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          center_id?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          address: string | null
+          center_id: string
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          nid: string | null
+          phone: string | null
+          photo_url: string | null
+        }
+        Insert: {
+          address?: string | null
+          center_id: string
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          nid?: string | null
+          phone?: string | null
+          photo_url?: string | null
+        }
+        Update: {
+          address?: string | null
+          center_id?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          nid?: string | null
+          phone?: string | null
+          photo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trades: {
+        Row: {
+          center_id: string
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          center_id: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          center_id?: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_centers: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          center_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          center_id?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          center_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_center: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "center_admin" | "instructor"
+      attendance_status: "present" | "absent" | "late"
+      batch_status:
+        | "draft"
+        | "published"
+        | "in_progress"
+        | "completed"
+        | "archived"
+      pipeline_status:
+        | "applied"
+        | "shortlisted"
+        | "training_started"
+        | "ongoing"
+        | "completed"
+        | "certified"
+      student_source: "ami_probashi" | "manual"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +579,25 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["center_admin", "instructor"],
+      attendance_status: ["present", "absent", "late"],
+      batch_status: [
+        "draft",
+        "published",
+        "in_progress",
+        "completed",
+        "archived",
+      ],
+      pipeline_status: [
+        "applied",
+        "shortlisted",
+        "training_started",
+        "ongoing",
+        "completed",
+        "certified",
+      ],
+      student_source: ["ami_probashi", "manual"],
+    },
   },
 } as const
