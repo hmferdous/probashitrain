@@ -87,10 +87,9 @@ export default function Batches() {
 
   const togglePublish = async (b: Batch) => {
     const next = !b.published_to_ami_probashi;
-    const { error } = await supabase
-      .from("batches")
-      .update({ published_to_ami_probashi: next, status: next && b.status === "draft" ? "published" : b.status })
-      .eq("id", b.id);
+    const updates: any = { published_to_ami_probashi: next };
+    if (next && b.status === "draft") updates.status = "published";
+    const { error } = await supabase.from("batches").update(updates).eq("id", b.id);
     if (error) { toast.error(error.message); return; }
     toast.success(next ? "Published to Ami Probashi" : "Unpublished");
     load();
