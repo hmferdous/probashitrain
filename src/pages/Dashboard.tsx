@@ -1,0 +1,84 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import AppLayout from "@/components/AppLayout";
+import PageHeader from "@/components/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Layers, BookOpen, CalendarDays, Users, Award, Inbox } from "lucide-react";
+import { Link } from "react-router-dom";
+
+interface Stats {
+  trades: number; courses: number; batches: number;
+  students: number; applied: number; certified: number;
+}
+
+export default function Dashboard() {
+  const { center, profile } = useAuth();
+  const [stats, setStats] = useState<Stats>({ trades: 0, courses: 0, batches: 0, students: 0, applied: 0, certified: 0 });
+
+  useEffect(() => {
+    if (!center) return;
+    (async () => {
+      const [t, c, b, s, a, cert] = await Promise.all([
+        supabase.from("trades").select("id", { count: "exact", head: true }).eq("center_id", center.id),
+        supabase.from("courses").select("id", { count: "exact", head: true }).eq("center_id", center.id),
+        supabase.from("batches").select("id", { count: "exact", head: true }).eq("center_id", center.id),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("center_id", center.id),
+        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "applied"),
+        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "certified"),
+      ]);
+      setStats({
+        trades: t.count ?? 0, courses: c.count ?? 0, batches: b.count ?? 0,
+        students: s.count ?? 0, applied: a.count ?? 0, certified: cert.count ?? 0,
+      });
+    })();
+  }, [center]);
+
+  const cards = [
+    { label: "Trades", value: stats.trades, icon: Layers, to: "/app/trades", color: "bg-info/10 text-info" },
+    { label: "Courses", value: stats.courses, icon: BookOpen, to: "/app/courses", color: "bg-primary/10 text-primary" },
+    { label: "Batches", value: stats.batches, icon: CalendarDays, to: "/app/batches", color: "bg-accent/15 text-accent-foreground" },
+    { label: "Students", value: stats.students, icon: Users, to: "/app/students", color: "bg-success/10 text-success" },
+    { label: "New applications", value: stats.applied, icon: Inbox, to: "/app/applications", color: "bg-warning/15 text-warning" },
+    { label: "Certificates issued", value: stats.certified, icon: Award, to: "/app/certificates", color: "bg-accent/15 text-accent" },
+  ];
+
+  return (
+    <AppLayout>
+      <div className="p-8 max-w-7xl mx-auto">
+        <PageHeader
+          title={`Welcome back, ${profile?.full_name?.split(" ")[0] ?? ""}`}
+          description={center?.name}
+        />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {cards.map((c) => (
+            <Link key={c.label} to={c.to}>
+              <Card className="p-6 hover:shadow-elegant transition-all hover:-translate-y-0.5">
+                <div className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 ${c.color}`}>
+                  <c.icon className="h-5 w-5" />
+                </div>
+                <div className="text-3xl font-bold">{c.value}</div>
+                <div className="text-sm text-muted-foreground mt-1">{c.label}</div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        <Card className="p-8 mt-8 bg-gradient-primary text-primary-foreground">
+          <h3 className="text-xl font-semibold mb-2">Get started</h3>
+          <p className="text-primary-foreground/80 mb-4 text-sm">
+            Create a trade, add courses, then publish your first training batch to the Ami Probashi app.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Link to="/app/trades" className="px-4 py-2 rounded-lg bg-primary-foreground text-primary text-sm font-medium hover:opacity-90">
+              + Add a trade
+            </Link>
+            <Link to="/app/batches" className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover:opacity-90">
+              + Publish a batch
+            </Link>
+          </div>
+        </Card>
+      </div>
+    </AppLayout>
+  );
+}
