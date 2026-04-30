@@ -427,6 +427,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_training_center: {
+        Args: { _address: string; _name: string; _phone: string }
+        Returns: {
+          address: string | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          phone: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_centers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_user_center: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
