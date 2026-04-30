@@ -33,14 +33,12 @@ export default function Onboarding() {
     });
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
     setLoading(true);
-    const { data: center, error } = await supabase
-      .from("training_centers")
-      .insert({ name: parsed.data.name, phone: parsed.data.phone, address: parsed.data.address })
-      .select()
-      .single();
-    if (error || !center) { setLoading(false); toast.error(error?.message ?? "Failed"); return; }
-    await supabase.from("profiles").update({ center_id: center.id }).eq("id", user.id);
-    await supabase.from("user_roles").insert({ user_id: user.id, role: "center_admin", center_id: center.id });
+    const { error } = await supabase.rpc("create_training_center", {
+      _name: parsed.data.name,
+      _phone: parsed.data.phone ?? "",
+      _address: parsed.data.address ?? "",
+    });
+    if (error) { setLoading(false); toast.error(error.message); return; }
     await refresh();
     setLoading(false);
     toast.success("Training center created!");
