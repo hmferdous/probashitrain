@@ -252,6 +252,45 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          center_id: string
+          created_at: string
+          enrollment_id: string
+          id: string
+          invoice_no: string
+          method: Database["public"]["Enums"]["payment_method"]
+          notes: string | null
+          paid_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          amount: number
+          center_id: string
+          created_at?: string
+          enrollment_id: string
+          id?: string
+          invoice_no: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          paid_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          center_id?: string
+          created_at?: string
+          enrollment_id?: string
+          id?: string
+          invoice_no?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          notes?: string | null
+          paid_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -444,6 +483,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      generate_invoice_no: { Args: never; Returns: string }
       get_user_center: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -462,6 +502,12 @@ export type Database = {
         | "in_progress"
         | "completed"
         | "archived"
+      payment_method:
+        | "cash"
+        | "ami_probashi"
+        | "bank"
+        | "mobile_banking"
+        | "other"
       pipeline_status:
         | "applied"
         | "shortlisted"
@@ -605,6 +651,13 @@ export const Constants = {
         "in_progress",
         "completed",
         "archived",
+      ],
+      payment_method: [
+        "cash",
+        "ami_probashi",
+        "bank",
+        "mobile_banking",
+        "other",
       ],
       pipeline_status: [
         "applied",
