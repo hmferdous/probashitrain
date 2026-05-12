@@ -19,6 +19,8 @@ import Attendance from "./pages/Attendance";
 import LiveClasses from "./pages/LiveClasses";
 import LiveRoom from "./pages/LiveRoom";
 import Certificates from "./pages/Certificates";
+import Payments from "./pages/Payments";
+import Invoice from "./pages/Invoice";
 import Certificate from "./pages/Certificate";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +49,8 @@ const App = () => (
             <Route path="/app/live/:id" element={<ProtectedRoute><LiveRoom /></ProtectedRoute>} />
             <Route path="/app/certificates" element={<ProtectedRoute><Certificates /></ProtectedRoute>} />
             <Route path="/app/certificates/:id" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
+            <Route path="/app/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+            <Route path="/app/payments/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
