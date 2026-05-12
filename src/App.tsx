@@ -14,6 +14,7 @@ import Courses from "./pages/Courses";
 import Batches from "./pages/Batches";
 import BatchDetail from "./pages/BatchDetail";
 import Students from "./pages/Students";
+import StudentProfile from "./pages/StudentProfile";
 import Applications from "./pages/Applications";
 import Attendance from "./pages/Attendance";
 import LiveClasses from "./pages/LiveClasses";
