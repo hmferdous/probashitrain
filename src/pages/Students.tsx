@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
-import { Plus, Users, Mail, Phone } from "lucide-react";
+import { Plus, Users, Mail, Phone, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; }
@@ -86,7 +87,11 @@ export default function Students() {
         ) : (
           <Card className="divide-y">
             {filtered.map((s) => (
-              <div key={s.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+              <Link
+                key={s.id}
+                to={`/app/students/${s.id}`}
+                className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-gradient-primary text-primary-foreground flex items-center justify-center font-semibold">
                     {s.full_name.charAt(0).toUpperCase()}
@@ -99,8 +104,11 @@ export default function Students() {
                     </div>
                   </div>
                 </div>
-                {s.nid && <span className="text-xs text-muted-foreground font-mono">NID {s.nid}</span>}
-              </div>
+                <div className="flex items-center gap-3">
+                  {s.nid && <span className="text-xs text-muted-foreground font-mono">NID {s.nid}</span>}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Link>
             ))}
           </Card>
         )}
