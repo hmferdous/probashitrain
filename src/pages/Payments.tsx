@@ -249,7 +249,7 @@ function RecordPaymentDialog({
           </div>
           <div>
             <Label>Method *</Label>
-            <Select name="method" defaultValue="cash">
+            <Select value={method} onValueChange={(v) => setMethod(v as Method)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(Object.keys(METHOD_LABEL) as Method[]).map((m) => (
@@ -257,7 +257,6 @@ function RecordPaymentDialog({
                 ))}
               </SelectContent>
             </Select>
-            <input type="hidden" name="method" />
           </div>
           <div>
             <Label>Notes</Label>
