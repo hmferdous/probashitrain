@@ -326,15 +326,78 @@ export type Database = {
           },
         ]
       }
+      student_documents: {
+        Row: {
+          center_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          id: string
+          label: string | null
+          mime_type: string | null
+          size_bytes: number | null
+          student_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          file_name: string
+          file_path: string
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          student_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          file_name?: string
+          file_path?: string
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          student_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_documents_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "training_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_documents_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           address: string | null
           center_id: string
           created_at: string
+          date_of_birth: string | null
+          education_level: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           full_name: string
+          gender: string | null
           id: string
           nid: string | null
+          occupation: string | null
           phone: string | null
           photo_url: string | null
         }
@@ -342,10 +405,16 @@ export type Database = {
           address?: string | null
           center_id: string
           created_at?: string
+          date_of_birth?: string | null
+          education_level?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name: string
+          gender?: string | null
           id?: string
           nid?: string | null
+          occupation?: string | null
           phone?: string | null
           photo_url?: string | null
         }
@@ -353,10 +422,16 @@ export type Database = {
           address?: string | null
           center_id?: string
           created_at?: string
+          date_of_birth?: string | null
+          education_level?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string
+          gender?: string | null
           id?: string
           nid?: string | null
+          occupation?: string | null
           phone?: string | null
           photo_url?: string | null
         }
@@ -502,6 +577,13 @@ export type Database = {
         | "in_progress"
         | "completed"
         | "archived"
+      document_type:
+        | "nid"
+        | "education_certificate"
+        | "cv"
+        | "training_certificate"
+        | "photo"
+        | "other"
       payment_method:
         | "cash"
         | "ami_probashi"
@@ -651,6 +733,14 @@ export const Constants = {
         "in_progress",
         "completed",
         "archived",
+      ],
+      document_type: [
+        "nid",
+        "education_certificate",
+        "cv",
+        "training_certificate",
+        "photo",
+        "other",
       ],
       payment_method: [
         "cash",
