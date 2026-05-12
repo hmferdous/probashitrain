@@ -203,6 +203,7 @@ function RecordPaymentDialog({
   row, centerId, onClose, onSaved,
 }: { row: Row | null; centerId: string; onClose: () => void; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
+  const [method, setMethod] = useState<Method>("cash");
   if (!row) return null;
   const due = Math.max(0, row.course_price - row.paid);
 
@@ -211,7 +212,6 @@ function RecordPaymentDialog({
     const fd = new FormData(e.currentTarget);
     const amount = Number(fd.get("amount") || 0);
     if (amount <= 0) { toast.error("Amount must be greater than 0"); return; }
-    const method = String(fd.get("method") || "cash") as Method;
     const notes = String(fd.get("notes") || "").trim() || null;
     setSaving(true);
     const { data: invData } = await (supabase.rpc as any)("generate_invoice_no");
