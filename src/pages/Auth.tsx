@@ -9,6 +9,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import PasswordStrength, { scorePassword } from "@/components/PasswordStrength";
+import GoogleButton from "@/components/GoogleButton";
 
 const signupSchema = z.object({
   full_name: z.string().trim().min(2, "Name too short").max(100),
@@ -23,6 +25,7 @@ const loginSchema = z.object({
 export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [signupPw, setSignupPw] = useState("");
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,6 +36,10 @@ export default function Auth() {
       password: fd.get("password"),
     });
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
+    if (scorePassword(parsed.data.password).score < 3) {
+      toast.error("Please choose a stronger password");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: parsed.data.email,
@@ -91,6 +98,8 @@ export default function Auth() {
                   Sign in
                 </Button>
               </form>
+              <Divider />
+              <GoogleButton label="Sign in with Google" />
             </TabsContent>
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
@@ -104,19 +113,43 @@ export default function Auth() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="su-password">Password</Label>
-                  <Input id="su-password" name="password" type="password" required minLength={8} />
+                  <Input
+                    id="su-password"
+                    name="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={signupPw}
+                    onChange={(e) => setSignupPw(e.target.value)}
+                  />
+                  <PasswordStrength password={signupPw} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Create training center account
                 </Button>
               </form>
+              <Divider />
+              <GoogleButton label="Sign up with Google" />
             </TabsContent>
           </Tabs>
         </Card>
         <p className="text-center text-xs text-primary-foreground/70 mt-4">
           B2B platform for training centers in Bangladesh
         </p>
+      </div>
+    </div>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="relative my-4">
+      <div className="absolute inset-0 flex items-center">
+        <span className="w-full border-t border-border" />
+      </div>
+      <div className="relative flex justify-center text-[11px] uppercase">
+        <span className="bg-card px-2 text-muted-foreground">or</span>
       </div>
     </div>
   );

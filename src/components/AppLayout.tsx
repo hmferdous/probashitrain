@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Layers, BookOpen, CalendarDays, Users, ClipboardCheck,
-  Award, Video, LogOut, GraduationCap, Inbox
+  Award, Video, LogOut, GraduationCap, Inbox, Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ const nav = [
   { to: "/app/students", label: "Students", icon: Users },
   { to: "/app/attendance", label: "Attendance", icon: ClipboardCheck },
   { to: "/app/live", label: "Live Classes", icon: Video },
+  { to: "/app/payments", label: "Payments", icon: Wallet },
   { to: "/app/certificates", label: "Certificates", icon: Award },
 ];
 
