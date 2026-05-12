@@ -130,10 +130,14 @@ export default function StudentProfile() {
     });
     if (up.error) { setUploading(false); return toast.error(up.error.message); }
     const { error } = await supabase.from("student_documents").insert({
-      student_id: student.id, center_id: center.id,
-      doc_type: docType as Doc["doc_type"], label,
-      file_path: path, file_name: file.name,
-      mime_type: file.type || null, size_bytes: file.size,
+      student_id: student.id,
+      center_id: center.id,
+      doc_type: docType as "nid" | "education_certificate" | "cv" | "training_certificate" | "photo" | "other",
+      label,
+      file_path: path,
+      file_name: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
       uploaded_by: user?.id ?? null,
     });
     setUploading(false);
