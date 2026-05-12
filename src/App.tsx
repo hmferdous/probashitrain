@@ -44,6 +44,7 @@ const App = () => (
             <Route path="/app/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
             <Route path="/app/batches/:id" element={<ProtectedRoute><BatchDetail /></ProtectedRoute>} />
             <Route path="/app/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+            <Route path="/app/students/:id" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
             <Route path="/app/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
             <Route path="/app/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
             <Route path="/app/live" element={<ProtectedRoute><LiveClasses /></ProtectedRoute>} />
