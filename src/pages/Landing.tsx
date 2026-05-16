@@ -97,7 +97,8 @@ export default function Landing() {
       </section>
 
       <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        © 2026 Probashi Skills · Empowering Bangladesh's workforce
+        © 2026 Probashi Skills · Empowering Bangladesh's workforce ·{" "}
+        <Link to="/resources" className="hover:underline text-primary">Resources</Link>
       </footer>
     </div>
   );
