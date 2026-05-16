@@ -23,7 +23,20 @@ import Certificates from "./pages/Certificates";
 import Payments from "./pages/Payments";
 import Invoice from "./pages/Invoice";
 import Certificate from "./pages/Certificate";
+import SeoLandingPage from "./pages/seo/SeoLandingPage";
+import SeoHub from "./pages/seo/SeoHub";
 import NotFound from "./pages/NotFound";
+
+const SEO_SLUGS = [
+  "vocational-training-bangladesh",
+  "bmet-training-management",
+  "ami-probashi-training-centers",
+  "skill-development-bangladesh",
+  "technical-training-centers-bangladesh",
+  "probashi-prosikkhon",
+  "dokkhota-unnayan",
+  "karigari-prosikkhon",
+];
 
 const queryClient = new QueryClient();
 
@@ -53,6 +66,10 @@ const App = () => (
             <Route path="/app/certificates/:id" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
             <Route path="/app/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
             <Route path="/app/payments/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
+            <Route path="/resources" element={<SeoHub />} />
+            {SEO_SLUGS.map((slug) => (
+              <Route key={slug} path={`/${slug}`} element={<SeoLandingPage />} />
+            ))}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
