@@ -70,24 +70,45 @@ export default function Students() {
           title="Students"
           description="All students across batches at your center."
           action={
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Add student</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>New student</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-3">
-                  <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
-                    <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
-                  </div>
-                  <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
-                  <div><Label>Address</Label><Input name="address" maxLength={300} /></div>
-                  <Button type="submit" className="w-full">Add student</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            plan.locked.inPersonAdmission ? (
+              <Link to="/app/plans">
+                <Button variant="outline" className="gap-1.5">
+                  <Lock className="h-4 w-4" /> In-person admission — Upgrade
+                </Button>
+              </Link>
+            ) : (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Add student</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>New student (in-person admission)</DialogTitle></DialogHeader>
+                  <form onSubmit={handleCreate} className="space-y-3">
+                    <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
+                      <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
+                    </div>
+                    <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
+                    <div><Label>Address</Label><Input name="address" maxLength={300} /></div>
+                    <Button type="submit" className="w-full">Add student</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )
           }
         />
+        {plan.limits.maxStudents !== null && (
+          <Card className="p-3 mb-4 flex items-center justify-between bg-muted/30">
+            <div className="text-sm">
+              <span className="font-medium">{students.length}</span>
+              <span className="text-muted-foreground"> / {plan.limits.maxStudents} students used on {plan.name}</span>
+            </div>
+            {students.length >= plan.limits.maxStudents && (
+              <Link to="/app/plans" className="text-xs text-primary font-medium flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Upgrade for more
+              </Link>
+            )}
+          </Card>
+        )}
         <Input placeholder="Search by name, phone, email…" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 max-w-md" />
         {filtered.length === 0 ? (
           <Card className="p-12 text-center">
