@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ interface Trade { id: string; name: string; }
 
 export default function Courses() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [courses, setCourses] = useState<Course[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [open, setOpen] = useState(false);
@@ -46,6 +49,10 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
+    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
+      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     if (!selectedTrade) { toast.error("Select a trade"); return; }
     const { error } = await supabase.from("courses").insert({
