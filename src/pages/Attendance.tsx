@@ -1,15 +1,29 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
+import FeatureLockedPage from "@/components/FeatureLockedPage";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 
 export default function Attendance() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [batches, setBatches] = useState<any[]>([]);
+
+  if (plan.locked.attendance) {
+    return (
+      <FeatureLockedPage
+        title="Attendance"
+        feature="Daily attendance tracking"
+        description="Track student attendance per session, export reports, and link attendance to certificate eligibility."
+        requiredPlan="Premium"
+      />
+    );
+  }
 
   useEffect(() => {
     if (!center) return;

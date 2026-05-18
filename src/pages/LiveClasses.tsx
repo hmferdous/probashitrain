@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
+import FeatureLockedPage from "@/components/FeatureLockedPage";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -11,7 +13,19 @@ import { format } from "date-fns";
 
 export default function LiveClasses() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [sessions, setSessions] = useState<any[]>([]);
+
+  if (plan.locked.liveClasses) {
+    return (
+      <FeatureLockedPage
+        title="Live Classes"
+        feature="Host online classes inside the portal"
+        description="Schedule and run live online classes with built-in video, attendance tracking, and recording. Available only on Enterprise."
+        requiredPlan="Enterprise"
+      />
+    );
+  }
 
   useEffect(() => {
     if (!center) return;
