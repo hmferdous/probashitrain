@@ -42,12 +42,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <div className="h-9 w-9 rounded-lg bg-gradient-gold flex items-center justify-center shadow-gold">
               <GraduationCap className="h-5 w-5 text-accent-foreground" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-sidebar-foreground">Probashi Skills</div>
               <div className="text-[11px] text-sidebar-foreground/60 truncate max-w-[140px]">
                 {center?.name ?? "Setup pending"}
               </div>
             </div>
+          </div>
+          <div className="mt-3">
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-accent/50 text-accent">
+              {plan.name} plan
+            </Badge>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
