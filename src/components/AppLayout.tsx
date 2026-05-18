@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Layers, BookOpen, CalendarDays, Users, ClipboardCheck,
-  Award, Video, LogOut, GraduationCap, Inbox, Wallet
+  Award, Video, LogOut, GraduationCap, Inbox, Wallet, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePlan } from "@/lib/plan";
+import { Badge } from "@/components/ui/badge";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -19,10 +21,12 @@ const nav = [
   { to: "/app/live", label: "Live Classes", icon: Video },
   { to: "/app/payments", label: "Payments", icon: Wallet },
   { to: "/app/certificates", label: "Certificates", icon: Award },
+  { to: "/app/plans", label: "Plans", icon: Sparkles },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { profile, center, signOut } = useAuth();
+  const { plan } = usePlan();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
