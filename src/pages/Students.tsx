@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,14 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
-import { Plus, Users, Mail, Phone, ChevronRight } from "lucide-react";
+import { Plus, Users, Mail, Phone, ChevronRight, Lock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; }
 
 export default function Students() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -32,6 +34,14 @@ export default function Students() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
+    if (plan.locked.inPersonAdmission) {
+      toast.error("In-person admission requires Premium plan");
+      return;
+    }
+    if (plan.limits.maxStudents !== null && students.length >= plan.limits.maxStudents) {
+      toast.error(`Your ${plan.name} plan caps students at ${plan.limits.maxStudents}. Upgrade to add more.`);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const { error } = await supabase.from("students").insert({
       center_id: center.id,
