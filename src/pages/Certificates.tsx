@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
+import FeatureLockedPage from "@/components/FeatureLockedPage";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Award } from "lucide-react";
@@ -10,7 +12,19 @@ import { format } from "date-fns";
 
 export default function Certificates() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [items, setItems] = useState<any[]>([]);
+
+  if (plan.locked.certificates) {
+    return (
+      <FeatureLockedPage
+        title="Certificates"
+        feature="Issue branded completion certificates"
+        description="Generate and download branded certificates for students who complete a batch."
+        requiredPlan="Premium"
+      />
+    );
+  }
 
   useEffect(() => {
     if (!center) return;

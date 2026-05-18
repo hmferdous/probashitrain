@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth";
+import { PlanProvider } from "@/lib/plan";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Plans from "./pages/Plans";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -47,6 +49,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <PlanProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
@@ -66,12 +69,14 @@ const App = () => (
             <Route path="/app/certificates/:id" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
             <Route path="/app/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
             <Route path="/app/payments/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
+            <Route path="/app/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
             <Route path="/resources" element={<SeoHub />} />
             {SEO_SLUGS.map((slug) => (
               <Route key={slug} path={`/${slug}`} element={<SeoLandingPage />} />
             ))}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </PlanProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

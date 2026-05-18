@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ interface Trade { id: string; name: string; }
 
 export default function Courses() {
   const { center } = useAuth();
+  const { plan } = usePlan();
   const [courses, setCourses] = useState<Course[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [open, setOpen] = useState(false);
@@ -46,6 +49,10 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
+    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
+      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     if (!selectedTrade) { toast.error("Select a trade"); return; }
     const { error } = await supabase.from("courses").insert({
@@ -78,7 +85,9 @@ export default function Courses() {
           action={
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button disabled={trades.length === 0}><Plus className="h-4 w-4 mr-2" /> Add course</Button>
+                <Button disabled={trades.length === 0 || (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses)}>
+                  <Plus className="h-4 w-4 mr-2" /> Add course
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>New course</DialogTitle></DialogHeader>
@@ -116,6 +125,17 @@ export default function Courses() {
             </Dialog>
           }
         />
+        {plan.limits.maxPublishedCourses !== null && (
+          <Card className="p-3 mb-4 flex items-center justify-between bg-muted/30">
+            <div className="text-sm">
+              <span className="font-medium">{courses.length}</span>
+              <span className="text-muted-foreground"> / {plan.limits.maxPublishedCourses} courses on {plan.name}</span>
+            </div>
+            {courses.length >= plan.limits.maxPublishedCourses && (
+              <Link to="/app/plans" className="text-xs text-primary font-medium">Upgrade for unlimited →</Link>
+            )}
+          </Card>
+        )}
         {trades.length === 0 ? (
           <Card className="p-12 text-center">
             <p className="text-muted-foreground">Add a trade first, then create courses under it.</p>

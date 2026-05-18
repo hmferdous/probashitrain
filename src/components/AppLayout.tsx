@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Layers, BookOpen, CalendarDays, Users, ClipboardCheck,
-  Award, Video, LogOut, GraduationCap, Inbox, Wallet
+  Award, Video, LogOut, GraduationCap, Inbox, Wallet, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePlan } from "@/lib/plan";
+import { Badge } from "@/components/ui/badge";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -19,10 +21,12 @@ const nav = [
   { to: "/app/live", label: "Live Classes", icon: Video },
   { to: "/app/payments", label: "Payments", icon: Wallet },
   { to: "/app/certificates", label: "Certificates", icon: Award },
+  { to: "/app/plans", label: "Plans", icon: Sparkles },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { profile, center, signOut } = useAuth();
+  const { plan } = usePlan();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -38,12 +42,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <div className="h-9 w-9 rounded-lg bg-gradient-gold flex items-center justify-center shadow-gold">
               <GraduationCap className="h-5 w-5 text-accent-foreground" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-sidebar-foreground">Probashi Skills</div>
               <div className="text-[11px] text-sidebar-foreground/60 truncate max-w-[140px]">
                 {center?.name ?? "Setup pending"}
               </div>
             </div>
+          </div>
+          <div className="mt-3">
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-accent/50 text-accent">
+              {plan.name} plan
+            </Badge>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
