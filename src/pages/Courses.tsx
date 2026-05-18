@@ -85,7 +85,9 @@ export default function Courses() {
           action={
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button disabled={trades.length === 0}><Plus className="h-4 w-4 mr-2" /> Add course</Button>
+                <Button disabled={trades.length === 0 || (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses)}>
+                  <Plus className="h-4 w-4 mr-2" /> Add course
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>New course</DialogTitle></DialogHeader>
