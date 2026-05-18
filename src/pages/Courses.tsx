@@ -125,6 +125,17 @@ export default function Courses() {
             </Dialog>
           }
         />
+        {plan.limits.maxPublishedCourses !== null && (
+          <Card className="p-3 mb-4 flex items-center justify-between bg-muted/30">
+            <div className="text-sm">
+              <span className="font-medium">{courses.length}</span>
+              <span className="text-muted-foreground"> / {plan.limits.maxPublishedCourses} courses on {plan.name}</span>
+            </div>
+            {courses.length >= plan.limits.maxPublishedCourses && (
+              <Link to="/app/plans" className="text-xs text-primary font-medium">Upgrade for unlimited →</Link>
+            )}
+          </Card>
+        )}
         {trades.length === 0 ? (
           <Card className="p-12 text-center">
             <p className="text-muted-foreground">Add a trade first, then create courses under it.</p>
