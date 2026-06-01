@@ -10,18 +10,41 @@ import { cn } from "@/lib/utils";
 import { usePlan } from "@/lib/plan";
 import { Badge } from "@/components/ui/badge";
 
-const nav = [
-  { to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/app/trades", label: "Trades", icon: Layers },
-  { to: "/app/courses", label: "Courses", icon: BookOpen },
-  { to: "/app/batches", label: "Batches", icon: CalendarDays },
-  { to: "/app/applications", label: "Applications", icon: Inbox },
-  { to: "/app/students", label: "Students", icon: Users },
-  { to: "/app/attendance", label: "Attendance", icon: ClipboardCheck },
-  { to: "/app/live", label: "Live Classes", icon: Video },
-  { to: "/app/payments", label: "Payments", icon: Wallet },
-  { to: "/app/certificates", label: "Certificates", icon: Award },
-  { to: "/app/plans", label: "Plans", icon: Sparkles },
+const navGroups: { label: string; items: { to: string; label: string; icon: any; end?: boolean }[] }[] = [
+  {
+    label: "Overview",
+    items: [{ to: "/app", label: "Dashboard", icon: LayoutDashboard, end: true }],
+  },
+  {
+    label: "Academics",
+    items: [
+      { to: "/app/trades", label: "Trades", icon: Layers },
+      { to: "/app/courses", label: "Courses", icon: BookOpen },
+      { to: "/app/batches", label: "Batches", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Admissions",
+    items: [
+      { to: "/app/applications", label: "Applications", icon: Inbox },
+      { to: "/app/students", label: "Students", icon: Users },
+    ],
+  },
+  {
+    label: "Training",
+    items: [
+      { to: "/app/attendance", label: "Attendance", icon: ClipboardCheck },
+      { to: "/app/live", label: "Live Classes", icon: Video },
+      { to: "/app/certificates", label: "Certificates", icon: Award },
+    ],
+  },
+  {
+    label: "Billing",
+    items: [
+      { to: "/app/payments", label: "Payments", icon: Wallet },
+      { to: "/app/plans", label: "Plans", icon: Sparkles },
+    ],
+  },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
