@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Award } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  getBatchTemplateId,
+  getTemplateById,
+  getCustomPdf,
+  isCustomTemplate,
+} from "@/lib/certificateTemplates";
 
 export default function Certificate() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +34,12 @@ export default function Certificate() {
 
   if (!enr) return <AppLayout><div className="p-8">Loading…</div></AppLayout>;
 
+  const batchId = enr.batch_id;
+  const templateId = getBatchTemplateId(batchId);
+  const useCustom = isCustomTemplate(templateId);
+  const customPdf = center ? getCustomPdf(center.id) : null;
+  const tpl = getTemplateById(templateId);
+
   return (
     <AppLayout>
       <div className="p-8 max-w-5xl mx-auto">
@@ -34,44 +47,94 @@ export default function Certificate() {
           <Button variant="ghost" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back
           </Button>
-          <Button onClick={handleDownload}><Download className="h-4 w-4 mr-2" /> Download / Print</Button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              Template: <span className="font-medium text-foreground">
+                {useCustom && customPdf ? `Custom · ${customPdf.name}` : tpl.name}
+              </span>
+            </span>
+            <Button onClick={handleDownload}><Download className="h-4 w-4 mr-2" /> Download / Print</Button>
+          </div>
         </div>
 
-        <div id="cert" className="aspect-[1.414/1] bg-card border-[12px] border-double border-accent rounded-lg shadow-elegant relative overflow-hidden p-12 flex flex-col items-center justify-center text-center">
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-primary opacity-10" />
-          <Award className="h-16 w-16 text-accent mb-4" />
-          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Certificate of Completion</p>
-          <h1 className="text-4xl font-bold mt-3 mb-1">{center?.name}</h1>
-          <div className="h-1 w-24 bg-gradient-gold rounded-full my-4" />
-          <p className="text-sm text-muted-foreground">This is to certify that</p>
-          <h2 className="text-3xl font-bold mt-2 mb-2 text-primary">{enr.students.full_name}</h2>
-          <p className="text-sm max-w-xl text-muted-foreground">
-            has successfully completed the training program
-          </p>
-          <p className="text-xl font-semibold mt-3">
-            {enr.batches?.courses?.title}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            ({enr.batches?.courses?.trades?.name} · {enr.batches?.courses?.duration_hours} hours)
-          </p>
-          {enr.performance_score != null && (
-            <p className="mt-4 text-sm">Performance score: <span className="font-semibold text-accent">{enr.performance_score} / 100</span></p>
-          )}
-          <div className="grid grid-cols-2 gap-12 mt-10 w-full max-w-md">
-            <div className="text-center">
-              <div className="border-t pt-2 text-xs text-muted-foreground">
-                Issued {enr.certificate_issued_at ? format(new Date(enr.certificate_issued_at), "PP") : "—"}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="border-t pt-2 text-xs text-muted-foreground">Authorized Signature</div>
-            </div>
+        {useCustom && customPdf ? (
+          <div className="aspect-[1.414/1] bg-card rounded-lg shadow-elegant overflow-hidden">
+            <iframe
+              src={customPdf.dataUrl}
+              title="Custom certificate"
+              className="w-full h-full"
+            />
           </div>
-          <p className="absolute bottom-3 right-4 text-[10px] text-muted-foreground font-mono">
-            Cert ID: {enr.id.slice(0, 8).toUpperCase()}
-          </p>
-        </div>
+        ) : (
+          <PresetCertificate enr={enr} center={center} tpl={tpl} />
+        )}
       </div>
     </AppLayout>
+  );
+}
+
+function PresetCertificate({ enr, center, tpl }: { enr: any; center: any; tpl: ReturnType<typeof getTemplateById> }) {
+  const accentText =
+    tpl.accent === "gold" ? "text-accent" :
+    tpl.accent === "navy" ? "text-primary" :
+    tpl.accent === "emerald" ? "text-success" :
+    "text-foreground";
+
+  const bgTint =
+    tpl.accent === "gold" ? "bg-gradient-gold/10" :
+    tpl.accent === "navy" ? "bg-primary/5" :
+    tpl.accent === "emerald" ? "bg-success/5" :
+    "bg-muted/20";
+
+  return (
+    <div className={cn(
+      "aspect-[1.414/1] bg-card rounded-lg shadow-elegant relative overflow-hidden p-12 flex flex-col items-center justify-center text-center",
+      tpl.border,
+      bgTint,
+    )}>
+      {tpl.layout !== "minimal" && (
+        <div className={cn(
+          "absolute top-0 left-0 right-0 h-32 opacity-10",
+          tpl.accent === "gold" && "bg-gradient-gold",
+          tpl.accent === "navy" && "bg-gradient-primary",
+          tpl.accent === "emerald" && "bg-success",
+        )} />
+      )}
+      <Award className={cn("h-16 w-16 mb-4", accentText)} />
+      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Certificate of Completion</p>
+      <h1 className="text-4xl font-bold mt-3 mb-1">{center?.name}</h1>
+      <div className={cn(
+        "h-1 w-24 rounded-full my-4",
+        tpl.accent === "gold" && "bg-gradient-gold",
+        tpl.accent === "navy" && "bg-primary",
+        tpl.accent === "emerald" && "bg-success",
+        tpl.accent === "minimal" && "bg-border",
+      )} />
+      <p className="text-sm text-muted-foreground">This is to certify that</p>
+      <h2 className={cn("text-3xl font-bold mt-2 mb-2", accentText)}>{enr.students.full_name}</h2>
+      <p className="text-sm max-w-xl text-muted-foreground">
+        has successfully completed the training program
+      </p>
+      <p className="text-xl font-semibold mt-3">{enr.batches?.courses?.title}</p>
+      <p className="text-sm text-muted-foreground">
+        ({enr.batches?.courses?.trades?.name} · {enr.batches?.courses?.duration_hours} hours)
+      </p>
+      {enr.performance_score != null && (
+        <p className="mt-4 text-sm">Performance score: <span className={cn("font-semibold", accentText)}>{enr.performance_score} / 100</span></p>
+      )}
+      <div className="grid grid-cols-2 gap-12 mt-10 w-full max-w-md">
+        <div className="text-center">
+          <div className="border-t pt-2 text-xs text-muted-foreground">
+            Issued {enr.certificate_issued_at ? format(new Date(enr.certificate_issued_at), "PP") : "—"}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="border-t pt-2 text-xs text-muted-foreground">Authorized Signature</div>
+        </div>
+      </div>
+      <p className="absolute bottom-3 right-4 text-[10px] text-muted-foreground font-mono">
+        Cert ID: {enr.id.slice(0, 8).toUpperCase()}
+      </p>
+    </div>
   );
 }
