@@ -17,6 +17,7 @@ export interface PlanConfig {
     attendance: boolean;
     certificates: boolean;
     inPersonAdmission: boolean;
+    customCertificate: boolean;
   };
 }
 
@@ -38,6 +39,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
       attendance: true,
       certificates: true,
       inPersonAdmission: true,
+      customCertificate: true,
     },
   },
   premium: {
@@ -59,6 +61,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
       attendance: false,
       certificates: false,
       inPersonAdmission: false,
+      customCertificate: false,
     },
   },
   enterprise: {
@@ -79,6 +82,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
       attendance: false,
       certificates: false,
       inPersonAdmission: false,
+      customCertificate: false,
     },
   },
 };
