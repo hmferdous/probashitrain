@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { usePlan } from "@/lib/plan";
@@ -7,11 +7,10 @@ import PageHeader from "@/components/PageHeader";
 import FeatureLockedPage from "@/components/FeatureLockedPage";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "react-router-dom";
-import { Award, Check, Lock, Sparkles, Upload, FileText, Trash2 } from "lucide-react";
+import { Award, Lock, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -19,10 +18,10 @@ import {
   CERT_TEMPLATES,
   getBatchTemplateId,
   setBatchTemplateId,
-  getCustomPdf,
-  setCustomPdf,
-  CustomCertPdf,
+  hasBuilderConfig,
+  CUSTOM_BUILDER_ID,
 } from "@/lib/certificateTemplates";
+import CertificateBuilder from "@/components/CertificateBuilder";
 
 export default function Certificates() {
   const { center } = useAuth();
@@ -30,15 +29,14 @@ export default function Certificates() {
   const [items, setItems] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [batchTemplates, setBatchTemplates] = useState<Record<string, string>>({});
-  const [customPdf, setCustomPdfState] = useState<CustomCertPdf | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [builderExists, setBuilderExists] = useState(false);
 
   const certificatesLocked = plan.locked.certificates;
   const customLocked = plan.locked.customCertificate;
 
   useEffect(() => {
     if (!center) return;
-    setCustomPdfState(getCustomPdf(center.id));
+    setBuilderExists(hasBuilderConfig(center.id));
     (async () => {
       const { data: enr } = await supabase
         .from("enrollments")
@@ -66,38 +64,6 @@ export default function Certificates() {
     toast.success("Template updated for this batch");
   };
 
-  const handleUploadCustom = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !center) return;
-    if (file.type !== "application/pdf") {
-      toast.error("Please upload a PDF file");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("PDF must be under 5 MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const pdf: CustomCertPdf = {
-        name: file.name,
-        dataUrl: reader.result as string,
-        uploadedAt: new Date().toISOString(),
-      };
-      setCustomPdf(center.id, pdf);
-      setCustomPdfState(pdf);
-      toast.success("Custom certificate uploaded");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeCustom = () => {
-    if (!center) return;
-    setCustomPdf(center.id, null);
-    setCustomPdfState(null);
-    toast.success("Custom certificate removed");
-  };
-
   if (certificatesLocked) {
     return (
       <FeatureLockedPage
@@ -111,19 +77,19 @@ export default function Certificates() {
 
   const templateOptions = [
     ...CERT_TEMPLATES,
-    ...(customPdf ? [{ id: "custom-pdf", name: `Custom · ${customPdf.name}` }] : []),
+    ...(builderExists ? [{ id: CUSTOM_BUILDER_ID, name: "Custom · Builder design" }] : []),
   ];
 
   return (
     <AppLayout>
       <div className="p-8 max-w-7xl mx-auto">
-        <PageHeader title="Certificates" description="Issue certificates, browse templates and upload your own design." />
+        <PageHeader title="Certificates" description="Issue certificates, choose from templates, or design your own." />
 
         <Tabs defaultValue="issued" className="mt-2">
           <TabsList>
             <TabsTrigger value="issued">Issued</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
-            <TabsTrigger value="custom">Custom Template</TabsTrigger>
+            <TabsTrigger value="builder">Certificate Builder</TabsTrigger>
           </TabsList>
 
           {/* ISSUED */}
@@ -219,17 +185,17 @@ export default function Certificates() {
             </div>
           </TabsContent>
 
-          {/* CUSTOM */}
-          <TabsContent value="custom" className="mt-6">
+          {/* BUILDER */}
+          <TabsContent value="builder" className="mt-6">
             {customLocked ? (
               <Card className="p-10 text-center">
                 <div className="h-14 w-14 mx-auto rounded-full bg-gradient-gold flex items-center justify-center shadow-gold mb-4">
                   <Lock className="h-6 w-6 text-accent-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-1">Custom certificate templates</h3>
+                <h3 className="text-xl font-semibold mb-1">Certificate Builder</h3>
                 <p className="text-muted-foreground max-w-md mx-auto mb-5">
-                  Upload your own designed PDF and use it as the certificate for any batch.
-                  Available on the Premium plan.
+                  Design your own certificate with your logo, signatories, custom text with
+                  dynamic variables, frames and backgrounds. Available on the Premium plan.
                 </p>
                 <Link to="/app/plans">
                   <Button size="lg" className="gap-2">
@@ -237,56 +203,9 @@ export default function Certificates() {
                   </Button>
                 </Link>
               </Card>
-            ) : (
-              <Card className="p-6 space-y-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold">Custom PDF template</h3>
-                      <Badge variant="outline" className="border-accent/50 text-accent">Premium</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-                      Upload a print-ready PDF (A4 landscape recommended, max 5 MB).
-                      Once uploaded, you can assign it to any batch from the Templates tab.
-                    </p>
-                  </div>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={handleUploadCustom}
-                  />
-                  <Button onClick={() => fileRef.current?.click()} className="gap-2 shrink-0">
-                    <Upload className="h-4 w-4" /> Upload PDF
-                  </Button>
-                </div>
-
-                {customPdf ? (
-                  <div className="border rounded-lg p-4 flex items-center gap-3">
-                    <div className="h-10 w-10 rounded bg-accent/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-accent" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate flex items-center gap-2">
-                        {customPdf.name}
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Uploaded {format(new Date(customPdf.uploadedAt), "PP p")}
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={removeCustom} className="text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="border border-dashed rounded-lg p-8 text-center text-sm text-muted-foreground">
-                    No custom certificate uploaded yet.
-                  </div>
-                )}
-              </Card>
-            )}
+            ) : center ? (
+              <CertificateBuilder centerId={center.id} />
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>
