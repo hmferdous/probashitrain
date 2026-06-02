@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 import {
   getBatchTemplateId,
   getTemplateById,
-  getCustomPdf,
+  getBuilderConfig,
   isCustomTemplate,
+  CertVariableKey,
 } from "@/lib/certificateTemplates";
+import { BuiltCertificate } from "@/components/CertificateBuilder";
 
 export default function Certificate() {
   const { id } = useParams<{ id: string }>();
@@ -37,8 +39,22 @@ export default function Certificate() {
   const batchId = enr.batch_id;
   const templateId = getBatchTemplateId(batchId);
   const useCustom = isCustomTemplate(templateId);
-  const customPdf = center ? getCustomPdf(center.id) : null;
   const tpl = getTemplateById(templateId);
+
+  const builder = useCustom && center ? getBuilderConfig(center.id) : null;
+  const values: Partial<Record<CertVariableKey, string>> = {
+    student_name: enr.students?.full_name,
+    completion_date: enr.certificate_issued_at
+      ? format(new Date(enr.certificate_issued_at), "PP")
+      : "",
+    session_end_date: enr.batches?.end_date
+      ? format(new Date(enr.batches.end_date), "PP")
+      : "",
+    course_end_date: enr.batches?.end_date
+      ? format(new Date(enr.batches.end_date), "PP")
+      : "",
+    course_name: enr.batches?.courses?.title,
+  };
 
   return (
     <AppLayout>
@@ -50,21 +66,15 @@ export default function Certificate() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
               Template: <span className="font-medium text-foreground">
-                {useCustom && customPdf ? `Custom · ${customPdf.name}` : tpl.name}
+                {useCustom ? "Custom builder" : tpl.name}
               </span>
             </span>
             <Button onClick={handleDownload}><Download className="h-4 w-4 mr-2" /> Download / Print</Button>
           </div>
         </div>
 
-        {useCustom && customPdf ? (
-          <div className="aspect-[1.414/1] bg-card rounded-lg shadow-elegant overflow-hidden">
-            <iframe
-              src={customPdf.dataUrl}
-              title="Custom certificate"
-              className="w-full h-full"
-            />
-          </div>
+        {useCustom && builder ? (
+          <BuiltCertificate cfg={builder} values={values} />
         ) : (
           <PresetCertificate enr={enr} center={center} tpl={tpl} />
         )}
