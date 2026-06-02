@@ -77,7 +77,7 @@ export default function Certificates() {
 
   const templateOptions = [
     ...CERT_TEMPLATES,
-    ...(builderExists ? [{ id: CUSTOM_BUILDER_ID, name: "Custom · Builder design" }] : []),
+    { id: CUSTOM_BUILDER_ID, name: builderExists ? "Custom · Builder design" : "Custom · Builder (set up first)" },
   ];
 
   return (
