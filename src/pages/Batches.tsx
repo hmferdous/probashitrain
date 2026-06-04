@@ -35,25 +35,29 @@ const statusColors: Record<string, string> = {
   archived: "bg-muted text-muted-foreground",
 };
 
+interface Branch { id: string; name_en: string; name_bn: string; }
+
 export default function Batches() {
   const { center } = useAuth();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
 
   const load = async () => {
     if (!center) return;
-    const [b, c] = await Promise.all([
+    const [b, c, br] = await Promise.all([
       supabase
         .from("batches")
         .select("*, courses(title, trades(name))")
         .eq("center_id", center.id)
         .order("start_date", { ascending: false }),
       supabase.from("courses").select("id, title").eq("center_id", center.id),
+      supabase.from("branches").select("id, name_en, name_bn").eq("center_id", center.id).order("name_en"),
     ]);
     const batchList = (b.data as any[]) ?? [];
-    // counts
     const ids = batchList.map((x) => x.id);
     if (ids.length) {
       const { data: enr } = await supabase.from("enrollments").select("batch_id").in("batch_id", ids);
@@ -63,25 +67,52 @@ export default function Batches() {
     }
     setBatches(batchList);
     setCourses(c.data ?? []);
+    setBranches((br.data as any) ?? []);
   };
   useEffect(() => { load(); }, [center]);
+
+  const toggleBranch = (id: string, checked: boolean) => {
+    setBranchCaps((prev) => {
+      const next = { ...prev };
+      if (checked) next[id] = next[id] ?? 30;
+      else delete next[id];
+      return next;
+    });
+  };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center || !selectedCourse) { toast.error("Select a course"); return; }
+    const selectedBranchIds = Object.keys(branchCaps);
+    if (selectedBranchIds.length === 0) {
+      toast.error("Select at least one branch with its capacity");
+      return;
+    }
+    for (const id of selectedBranchIds) {
+      if (!Number.isFinite(branchCaps[id]) || branchCaps[id] < 1) {
+        toast.error("Enter a valid capacity for every selected branch");
+        return;
+      }
+    }
     const fd = new FormData(e.currentTarget);
-    const { error } = await supabase.from("batches").insert({
+    const totalCapacity = selectedBranchIds.reduce((s, id) => s + branchCaps[id], 0);
+    const { data: created, error } = await supabase.from("batches").insert({
       center_id: center.id,
       course_id: selectedCourse,
       name: String(fd.get("name") || "").trim(),
       start_date: String(fd.get("start_date")),
       end_date: String(fd.get("end_date")),
-      capacity: Number(fd.get("capacity") || 30),
+      capacity: totalCapacity,
       status: "draft",
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Batch created");
-    setOpen(false); setSelectedCourse("");
+    }).select().single();
+    if (error || !created) { toast.error(error?.message || "Failed to create"); return; }
+    const links = selectedBranchIds.map((bid) => ({
+      batch_id: created.id, branch_id: bid, capacity: branchCaps[bid],
+    }));
+    const { error: linkErr } = await supabase.from("batch_branches").insert(links);
+    if (linkErr) { toast.error(linkErr.message); return; }
+    toast.success("Session created");
+    setOpen(false); setSelectedCourse(""); setBranchCaps({});
     load();
   };
 
