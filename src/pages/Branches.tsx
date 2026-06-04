@@ -72,7 +72,7 @@ export default function Branches() {
     };
     const { error } = editing
       ? await supabase.from("branches").update(payload).eq("id", editing.id)
-      : await supabase.from("branches").insert(payload);
+      : await supabase.from("branches").insert([payload]);
     if (error) { toast.error(error.message); return; }
     toast.success(editing ? "Branch updated" : "Branch created");
     setOpen(false); setEditing(null);
