@@ -175,6 +175,42 @@ export type Database = {
         }
         Relationships: []
       }
+      course_materials: {
+        Row: {
+          center_id: string
+          course_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          center_id: string
+          course_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          center_id?: string
+          course_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           center_id: string
