@@ -49,6 +49,30 @@ export type Database = {
           },
         ]
       }
+      batch_branches: {
+        Row: {
+          batch_id: string
+          branch_id: string
+          capacity: number
+          created_at: string
+          id: string
+        }
+        Insert: {
+          batch_id: string
+          branch_id: string
+          capacity?: number
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          batch_id?: string
+          branch_id?: string
+          capacity?: number
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       batches: {
         Row: {
           capacity: number
@@ -108,6 +132,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      branches: {
+        Row: {
+          address_bn: string
+          address_en: string
+          center_id: string
+          created_at: string
+          email: string
+          id: string
+          map_link: string | null
+          name_bn: string
+          name_en: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          address_bn: string
+          address_en: string
+          center_id: string
+          created_at?: string
+          email: string
+          id?: string
+          map_link?: string | null
+          name_bn: string
+          name_en: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          address_bn?: string
+          address_en?: string
+          center_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          map_link?: string | null
+          name_bn?: string
+          name_en?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       courses: {
         Row: {
