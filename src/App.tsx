@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { PlanProvider } from "@/lib/plan";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Plans from "./pages/Plans";
+import Branches from "./pages/Branches";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -70,6 +71,7 @@ const App = () => (
             <Route path="/app/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
             <Route path="/app/payments/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
             <Route path="/app/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
+            <Route path="/app/branches-management" element={<ProtectedRoute><Branches /></ProtectedRoute>} />
             <Route path="/resources" element={<SeoHub />} />
             {SEO_SLUGS.map((slug) => (
               <Route key={slug} path={`/${slug}`} element={<SeoLandingPage />} />
