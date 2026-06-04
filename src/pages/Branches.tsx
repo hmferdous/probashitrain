@@ -65,14 +65,17 @@ export default function Branches() {
       email: fd.get("email"),
     });
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
+    const d = parsed.data;
     const payload = {
-      ...parsed.data,
-      map_link: parsed.data.map_link || null,
+      name_en: d.name_en, name_bn: d.name_bn,
+      address_en: d.address_en, address_bn: d.address_bn,
+      phone: d.phone, email: d.email,
+      map_link: d.map_link ? d.map_link : null,
       center_id: center.id,
     };
     const { error } = editing
       ? await supabase.from("branches").update(payload).eq("id", editing.id)
-      : await supabase.from("branches").insert([payload]);
+      : await supabase.from("branches").insert(payload);
     if (error) { toast.error(error.message); return; }
     toast.success(editing ? "Branch updated" : "Branch created");
     setOpen(false); setEditing(null);
