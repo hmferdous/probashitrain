@@ -137,8 +137,8 @@ export default function Batches() {
               <DialogTrigger asChild>
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>New training batch</DialogTitle></DialogHeader>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Course *</Label>
@@ -150,7 +150,7 @@ export default function Batches() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Batch name *</Label>
+                    <Label htmlFor="name">Session name *</Label>
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -164,10 +164,55 @@ export default function Batches() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="capacity">Capacity</Label>
-                    <Input id="capacity" name="capacity" type="number" defaultValue={30} min={1} />
+                    <Label>Branches & capacity *</Label>
+                    {branches.length === 0 ? (
+                      <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
+                        No branches yet.{" "}
+                        <Link to="/app/branches-management" className="text-primary underline">
+                          Add a branch
+                        </Link>{" "}
+                        before creating a session.
+                      </div>
+                    ) : (
+                      <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
+                        {branches.map((br) => {
+                          const checked = br.id in branchCaps;
+                          return (
+                            <div key={br.id} className="flex items-center gap-3 p-3">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-primary"
+                                checked={checked}
+                                onChange={(e) => toggleBranch(br.id, e.target.checked)}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{br.name_en}</div>
+                                <div className="text-xs text-muted-foreground truncate">{br.name_bn}</div>
+                              </div>
+                              <Input
+                                type="number"
+                                min={1}
+                                className="w-24"
+                                placeholder="Capacity"
+                                disabled={!checked}
+                                value={checked ? branchCaps[br.id] : ""}
+                                onChange={(e) =>
+                                  setBranchCaps((p) => ({ ...p, [br.id]: Number(e.target.value) || 0 }))
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <Button type="submit" className="w-full">Create batch</Button>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={branches.length === 0 || Object.keys(branchCaps).length === 0}
+                  >
+                    Create session
+                  </Button>
                 </form>
               </DialogContent>
             </Dialog>
