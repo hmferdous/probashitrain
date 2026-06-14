@@ -233,7 +233,7 @@ export default function Batches() {
               <Card key={b.id} className="p-5 hover:shadow-elegant transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <Badge variant="secondary" className="mb-2">{b.courses?.trades?.name ?? "—"} · {b.courses?.title}</Badge>
+                    <Badge variant="secondary" className="mb-2">{(b.courses?.category || b.courses?.trades?.name) ?? "—"} · {b.courses?.title}</Badge>
                     <h3 className="font-semibold text-lg">{b.name}</h3>
                   </div>
                   <Badge className={statusColors[b.status] || ""}>{b.status.replace("_", " ")}</Badge>
