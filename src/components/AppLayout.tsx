@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, Layers, BookOpen, CalendarDays, Users, ClipboardCheck,
+  LayoutDashboard, BookOpen, CalendarDays, Users, ClipboardCheck,
   Award, Video, LogOut, GraduationCap, Inbox, Wallet, Sparkles, Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
