@@ -23,7 +23,7 @@ import { format } from "date-fns";
 interface Batch {
   id: string; name: string; start_date: string; end_date: string;
   capacity: number; status: string; published_to_ami_probashi: boolean;
-  course_id: string; courses?: { title: string; trades?: { name: string } };
+  course_id: string; courses?: { title: string; category: string | null; trades?: { name: string } | null };
   enrollment_count?: number;
 }
 
