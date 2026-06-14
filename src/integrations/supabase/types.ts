@@ -213,6 +213,7 @@ export type Database = {
       }
       courses: {
         Row: {
+          category: string | null
           center_id: string
           cover_image_url: string | null
           created_at: string
@@ -220,10 +221,12 @@ export type Database = {
           duration_hours: number
           id: string
           price: number | null
+          tags: string[]
           title: string
-          trade_id: string
+          trade_id: string | null
         }
         Insert: {
+          category?: string | null
           center_id: string
           cover_image_url?: string | null
           created_at?: string
@@ -231,10 +234,12 @@ export type Database = {
           duration_hours?: number
           id?: string
           price?: number | null
+          tags?: string[]
           title: string
-          trade_id: string
+          trade_id?: string | null
         }
         Update: {
+          category?: string | null
           center_id?: string
           cover_image_url?: string | null
           created_at?: string
@@ -242,8 +247,9 @@ export type Database = {
           duration_hours?: number
           id?: string
           price?: number | null
+          tags?: string[]
           title?: string
-          trade_id?: string
+          trade_id?: string | null
         }
         Relationships: [
           {

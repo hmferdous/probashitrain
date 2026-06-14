@@ -23,7 +23,7 @@ import { format } from "date-fns";
 interface Batch {
   id: string; name: string; start_date: string; end_date: string;
   capacity: number; status: string; published_to_ami_probashi: boolean;
-  course_id: string; courses?: { title: string; trades?: { name: string } };
+  course_id: string; courses?: { title: string; category: string | null; trades?: { name: string } | null };
   enrollment_count?: number;
 }
 
@@ -51,7 +51,7 @@ export default function Batches() {
     const [b, c, br] = await Promise.all([
       supabase
         .from("batches")
-        .select("*, courses(title, trades(name))")
+        .select("*, courses(title, category, trades(name))")
         .eq("center_id", center.id)
         .order("start_date", { ascending: false }),
       supabase.from("courses").select("id, title").eq("center_id", center.id),
@@ -233,7 +233,7 @@ export default function Batches() {
               <Card key={b.id} className="p-5 hover:shadow-elegant transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <Badge variant="secondary" className="mb-2">{b.courses?.trades?.name ?? "—"} · {b.courses?.title}</Badge>
+                    <Badge variant="secondary" className="mb-2">{(b.courses?.category || b.courses?.trades?.name) ?? "—"} · {b.courses?.title}</Badge>
                     <h3 className="font-semibold text-lg">{b.name}</h3>
                   </div>
                   <Badge className={statusColors[b.status] || ""}>{b.status.replace("_", " ")}</Badge>

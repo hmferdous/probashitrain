@@ -1,41 +1,42 @@
-## Problem
+## Goal
+Let private institutes create courses directly, without first creating a trade. Replace the rigid Trade → Course hierarchy with a lightweight, optional **category** + **tags** model on the course itself.
 
-During onboarding, inserting into `training_centers` fails with a 403 "row violates row-level security policy" error.
+## Changes
 
-The INSERT itself is allowed (`WITH CHECK true`), but the request uses `.insert(...).select().single()` which returns the new row via `RETURNING`. PostgREST then applies the **SELECT** policy to that returned row. The current SELECT policy is:
+### 1. Database (migration)
+- Add to `public.courses`:
+  - `category` text (nullable) — single primary grouping, e.g. "Electrical", "IT", "Caregiving"
+  - `tags` text[] (nullable, default `'{}'`) — free-form labels for search/filter
+- Make `courses.trade_id` nullable so courses no longer require a trade.
+- Keep the `trades` table intact (don't drop) so existing demo data is preserved, but it becomes invisible in the UI.
 
-```
-id = get_user_center(auth.uid())
-```
+### 2. Course creation/edit UI (`src/pages/Courses.tsx`)
+- Remove the mandatory "Trade" select from the New Course dialog.
+- Add a **Category** input: combobox-style — types freely, but suggests categories already used by this center (deduped from existing courses). One value per course.
+- Add a **Tags** input: chip/badge entry (press Enter or comma to add), also suggesting existing tags from the center.
+- Course card: show the category as the badge (replacing the trade badge), with tags as small muted chips beneath the title.
+- Filter bar at the top of the courses list: filter by category and by tag.
 
-At onboarding time the user's `profiles.center_id` is still `NULL`, so the freshly inserted center doesn't match the SELECT policy and the row is filtered out → 403.
+### 3. Navigation (`src/components/AppLayout.tsx`)
+- Hide the **Trades** menu item entirely. Cleaner default for private institutes.
+- The `/app/trades` route stays mounted so old links don't 404, but it's unreachable from the sidebar.
 
-## Fix
+### 4. Downstream references
+- `Batches.tsx` and anywhere else that joins `trades(name)` on a course: fall back to `courses.category` when no trade is linked. No schema break because `trade_id` stays nullable.
+- Seed/demo data and SEO landing pages: no change needed.
 
-Update the SELECT policy on `training_centers` so the creator can also see centers that aren't yet linked to a profile, or restructure onboarding to be atomic. Cleanest fix:
+### 5. Out of scope
+- No migration of existing trades into categories (per your "don't worry about it").
+- No bulk editor for existing courses — they keep their current trade badge until edited.
+- No changes to certificates, plans, or branches.
 
-1. **Migration** — replace the `members view own center` SELECT policy so members OR users without a center yet (during onboarding) can read a center they're acting on. Specifically, allow SELECT when:
-   - `id = get_user_center(auth.uid())` (existing members), OR
-   - the requesting user has no center yet AND is the only one acting (covered implicitly by the insert+return flow).
+## Technical notes
+- Category suggestions come from a simple `select distinct category from courses where center_id = ?` — no new table needed.
+- Tags stored as Postgres `text[]`; queried with `cs` (contains) operator from supabase-js when filtering.
+- Form validation: category optional (max 60 chars), tags optional (max 10 per course, 30 chars each).
 
-   Simplest robust approach: create a SECURITY DEFINER RPC `create_training_center(name, phone, address)` that:
-   - inserts the center
-   - updates the caller's profile with `center_id`
-   - inserts a `user_roles` row with `center_admin`
-   - returns the new center row
-
-   This makes onboarding atomic, eliminates the RLS-on-RETURNING issue, and avoids partial state if any step fails.
-
-2. **Update `src/pages/Onboarding.tsx`** to call the RPC via `supabase.rpc('create_training_center', { ... })` instead of three separate calls.
-
-## Technical details
-
-- New SQL function `public.create_training_center(_name text, _phone text, _address text)` returning `training_centers`, `SECURITY DEFINER`, `SET search_path = public`.
-- Function body: insert center → update profile.center_id → insert user_roles(center_admin) → return center.
-- Keep existing RLS policies as-is (they're correct for steady-state usage).
-- Frontend: single `supabase.rpc(...)` call, then `refresh()` and navigate to `/app`.
-
-## Files
-
-- New migration adding the `create_training_center` function.
-- `src/pages/Onboarding.tsx` — swap the insert/update/insert chain for a single RPC call.
+## Files touched
+- `supabase/migrations/<new>.sql` — add columns, relax `trade_id`.
+- `src/pages/Courses.tsx` — new form fields, filter bar, card layout.
+- `src/components/AppLayout.tsx` — remove Trades from sidebar.
+- `src/pages/Batches.tsx` — minor display fallback to category.
