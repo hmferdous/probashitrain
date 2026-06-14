@@ -51,7 +51,7 @@ export default function Batches() {
     const [b, c, br] = await Promise.all([
       supabase
         .from("batches")
-        .select("*, courses(title, trades(name))")
+        .select("*, courses(title, category, trades(name))")
         .eq("center_id", center.id)
         .order("start_date", { ascending: false }),
       supabase.from("courses").select("id, title").eq("center_id", center.id),
