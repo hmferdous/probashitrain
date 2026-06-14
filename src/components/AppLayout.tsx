@@ -24,7 +24,6 @@ const navGroups: { label: string; items: { to: string; label: string; icon: any;
   {
     label: "Academics",
     items: [
-      { to: "/app/trades", label: "Trades", icon: Layers },
       { to: "/app/courses", label: "Courses", icon: BookOpen },
       { to: "/app/batches", label: "Batches", icon: CalendarDays },
     ],
