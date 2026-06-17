@@ -248,11 +248,20 @@ export default function Courses() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>New course</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
+                <DialogHeader>
+                  <DialogTitle>{editing ? "Edit course" : "New course"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreate} className="space-y-4" key={editing?.id ?? "new"}>
+                  {editing && (
+                    <div className="space-y-2">
+                      <Label>Course code</Label>
+                      <Input value={editing.code} readOnly disabled className="font-mono bg-muted/50" />
+                      <p className="text-xs text-muted-foreground">Auto-generated. Cannot be changed.</p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="title">Title *</Label>
-                    <Input id="title" name="title" required maxLength={150} placeholder="Industrial Wiring Level 1" />
+                    <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
