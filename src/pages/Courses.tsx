@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
-import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search } from "lucide-react";
+import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Course {
