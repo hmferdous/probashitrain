@@ -348,7 +348,7 @@ export default function Courses() {
                   </div>
 
                   <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting ? "Saving…" : "Create course"}
+                    {submitting ? "Saving…" : editing ? "Save changes" : "Create course"}
                   </Button>
                 </form>
               </DialogContent>
