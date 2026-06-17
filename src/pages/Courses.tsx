@@ -42,6 +42,7 @@ export default function Courses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Course | null>(null);
   const [category, setCategory] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -51,6 +52,15 @@ export default function Courses() {
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
+
+  const openEdit = (c: Course) => {
+    setEditing(c);
+    setCategory(c.category ?? "");
+    setTags(c.tags ?? []);
+    setTagInput("");
+    setPendingFiles([]);
+    setOpen(true);
+  };
 
   const load = async () => {
     if (!center) return;
