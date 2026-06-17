@@ -305,16 +305,16 @@ export default function Courses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="description">Description</Label>
-                    <Textarea id="description" name="description" rows={3} maxLength={1000} />
+                    <Textarea id="description" name="description" rows={3} maxLength={1000} defaultValue={editing?.description ?? ""} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="duration_hours">Duration (hrs)</Label>
-                      <Input id="duration_hours" name="duration_hours" type="number" defaultValue={40} min={1} />
+                      <Input id="duration_hours" name="duration_hours" type="number" defaultValue={editing?.duration_hours ?? 40} min={1} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="price">Price (BDT)</Label>
-                      <Input id="price" name="price" type="number" defaultValue={0} min={0} />
+                      <Input id="price" name="price" type="number" defaultValue={editing?.price ?? 0} min={0} />
                     </div>
                   </div>
 
