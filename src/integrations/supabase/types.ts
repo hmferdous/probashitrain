@@ -215,6 +215,7 @@ export type Database = {
         Row: {
           category: string | null
           center_id: string
+          code: string
           cover_image_url: string | null
           created_at: string
           description: string | null
@@ -228,6 +229,7 @@ export type Database = {
         Insert: {
           category?: string | null
           center_id: string
+          code: string
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
@@ -241,6 +243,7 @@ export type Database = {
         Update: {
           category?: string | null
           center_id?: string
+          code?: string
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
