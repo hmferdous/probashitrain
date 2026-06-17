@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.set_course_code() FROM PUBLIC, anon, authenticated;

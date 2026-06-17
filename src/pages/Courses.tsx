@@ -14,11 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
-import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search } from "lucide-react";
+import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Course {
-  id: string; title: string; description: string | null;
+  id: string; code: string; title: string; description: string | null;
   duration_hours: number; price: number | null;
   trade_id: string | null; category: string | null; tags: string[] | null;
   trades?: { name: string } | null;
@@ -42,6 +42,7 @@ export default function Courses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Course | null>(null);
   const [category, setCategory] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -51,6 +52,15 @@ export default function Courses() {
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
+
+  const openEdit = (c: Course) => {
+    setEditing(c);
+    setCategory(c.category ?? "");
+    setTags(c.tags ?? []);
+    setTagInput("");
+    setPendingFiles([]);
+    setOpen(true);
+  };
 
   const load = async () => {
     if (!center) return;
@@ -73,6 +83,7 @@ export default function Courses() {
   );
 
   const resetForm = () => {
+    setEditing(null);
     setCategory(""); setTags([]); setTagInput(""); setPendingFiles([]);
   };
 
@@ -128,21 +139,37 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
-    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
-      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
-      return;
-    }
     const fd = new FormData(e.currentTarget);
-    setSubmitting(true);
-    const { data: created, error } = await supabase.from("courses").insert({
-      center_id: center.id,
+    const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim() || null,
       duration_hours: Number(fd.get("duration_hours") || 40),
       price: Number(fd.get("price") || 0),
       category: category.trim().slice(0, 60) || null,
       tags,
-    }).select().single();
+    };
+    setSubmitting(true);
+
+    if (editing) {
+      const { error } = await supabase.from("courses").update(payload as any).eq("id", editing.id);
+      if (error) { setSubmitting(false); toast.error(error.message); return; }
+      if (pendingFiles.length) await uploadFilesForCourse(editing.id, pendingFiles);
+      setSubmitting(false);
+      toast.success("Course updated");
+      setOpen(false); resetForm();
+      load();
+      return;
+    }
+
+    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
+      setSubmitting(false);
+      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
+      return;
+    }
+    const { data: created, error } = await supabase.from("courses").insert({
+      center_id: center.id,
+      ...payload,
+    } as any).select().single();
     if (error || !created) { setSubmitting(false); toast.error(error?.message || "Failed"); return; }
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
     setSubmitting(false);
@@ -221,11 +248,20 @@ export default function Courses() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>New course</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
+                <DialogHeader>
+                  <DialogTitle>{editing ? "Edit course" : "New course"}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleCreate} className="space-y-4" key={editing?.id ?? "new"}>
+                  {editing && (
+                    <div className="space-y-2">
+                      <Label>Course code</Label>
+                      <Input value={editing.code} readOnly disabled className="font-mono bg-muted/50" />
+                      <p className="text-xs text-muted-foreground">Auto-generated. Cannot be changed.</p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="title">Title *</Label>
-                    <Input id="title" name="title" required maxLength={150} placeholder="Industrial Wiring Level 1" />
+                    <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
@@ -269,16 +305,16 @@ export default function Courses() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="description">Description</Label>
-                    <Textarea id="description" name="description" rows={3} maxLength={1000} />
+                    <Textarea id="description" name="description" rows={3} maxLength={1000} defaultValue={editing?.description ?? ""} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="duration_hours">Duration (hrs)</Label>
-                      <Input id="duration_hours" name="duration_hours" type="number" defaultValue={40} min={1} />
+                      <Input id="duration_hours" name="duration_hours" type="number" defaultValue={editing?.duration_hours ?? 40} min={1} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="price">Price (BDT)</Label>
-                      <Input id="price" name="price" type="number" defaultValue={0} min={0} />
+                      <Input id="price" name="price" type="number" defaultValue={editing?.price ?? 0} min={0} />
                     </div>
                   </div>
 
@@ -312,7 +348,7 @@ export default function Courses() {
                   </div>
 
                   <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting ? "Saving…" : "Create course"}
+                    {submitting ? "Saving…" : editing ? "Save changes" : "Create course"}
                   </Button>
                 </form>
               </DialogContent>
@@ -385,10 +421,18 @@ export default function Courses() {
               return (
                 <Card key={c.id} className="p-5 hover:shadow-elegant transition-shadow group">
                   <div className="flex items-start justify-between mb-2">
-                    <Badge variant="secondary">{displayBadge(c)}</Badge>
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(c.id)} className="opacity-0 group-hover:opacity-100">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{displayBadge(c)}</Badge>
+                      <span className="text-[10px] font-mono text-muted-foreground">{c.code}</span>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} title="Edit">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => handleDelete(c.id)} title="Delete">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                   <h3 className="font-semibold text-lg mb-1">{c.title}</h3>
                   {c.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{c.description}</p>}
