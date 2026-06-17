@@ -83,6 +83,7 @@ export default function Courses() {
   );
 
   const resetForm = () => {
+    setEditing(null);
     setCategory(""); setTags([]); setTagInput(""); setPendingFiles([]);
   };
 
