@@ -139,20 +139,36 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
-    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
-      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
-      return;
-    }
     const fd = new FormData(e.currentTarget);
-    setSubmitting(true);
-    const { data: created, error } = await supabase.from("courses").insert({
-      center_id: center.id,
+    const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim() || null,
       duration_hours: Number(fd.get("duration_hours") || 40),
       price: Number(fd.get("price") || 0),
       category: category.trim().slice(0, 60) || null,
       tags,
+    };
+    setSubmitting(true);
+
+    if (editing) {
+      const { error } = await supabase.from("courses").update(payload as any).eq("id", editing.id);
+      if (error) { setSubmitting(false); toast.error(error.message); return; }
+      if (pendingFiles.length) await uploadFilesForCourse(editing.id, pendingFiles);
+      setSubmitting(false);
+      toast.success("Course updated");
+      setOpen(false); resetForm();
+      load();
+      return;
+    }
+
+    if (plan.limits.maxPublishedCourses !== null && courses.length >= plan.limits.maxPublishedCourses) {
+      setSubmitting(false);
+      toast.error(`Your ${plan.name} plan allows up to ${plan.limits.maxPublishedCourses} courses. Upgrade to add more.`);
+      return;
+    }
+    const { data: created, error } = await supabase.from("courses").insert({
+      center_id: center.id,
+      ...payload,
     } as any).select().single();
     if (error || !created) { setSubmitting(false); toast.error(error?.message || "Failed"); return; }
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
