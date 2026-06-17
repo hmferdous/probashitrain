@@ -421,10 +421,18 @@ export default function Courses() {
               return (
                 <Card key={c.id} className="p-5 hover:shadow-elegant transition-shadow group">
                   <div className="flex items-start justify-between mb-2">
-                    <Badge variant="secondary">{displayBadge(c)}</Badge>
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(c.id)} className="opacity-0 group-hover:opacity-100">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{displayBadge(c)}</Badge>
+                      <span className="text-[10px] font-mono text-muted-foreground">{c.code}</span>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} title="Edit">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => handleDelete(c.id)} title="Delete">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                   <h3 className="font-semibold text-lg mb-1">{c.title}</h3>
                   {c.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{c.description}</p>}
