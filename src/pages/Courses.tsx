@@ -142,7 +142,7 @@ export default function Courses() {
       price: Number(fd.get("price") || 0),
       category: category.trim().slice(0, 60) || null,
       tags,
-    }).select().single();
+    } as any).select().single();
     if (error || !created) { setSubmitting(false); toast.error(error?.message || "Failed"); return; }
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
     setSubmitting(false);
