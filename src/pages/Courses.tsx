@@ -18,7 +18,7 @@ import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search } 
 import { toast } from "sonner";
 
 interface Course {
-  id: string; title: string; description: string | null;
+  id: string; code: string; title: string; description: string | null;
   duration_hours: number; price: number | null;
   trade_id: string | null; category: string | null; tags: string[] | null;
   trades?: { name: string } | null;
