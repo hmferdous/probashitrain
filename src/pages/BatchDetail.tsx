@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlan } from "@/lib/plan";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  ArrowLeft, UserPlus, Video, Award, ChevronRight, Star, ClipboardCheck, Plus
+  ArrowLeft, UserPlus, Video, Award, ChevronRight, Star, ClipboardCheck, Plus, Lock
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -44,6 +45,7 @@ interface Enrollment {
 
 export default function BatchDetail() {
   const { id } = useParams<{ id: string }>();
+  const { plan } = usePlan();
   const [batch, setBatch] = useState<any>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [students, setStudents] = useState<{ id: string; full_name: string }[]>([]);
@@ -99,6 +101,14 @@ export default function BatchDetail() {
   const createStudentAndEnroll = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!batch || !id) return;
+    if (plan.locked.inPersonAdmission) {
+      toast.error("In-person admission requires Premium plan");
+      return;
+    }
+    if (plan.limits.maxStudents !== null && students.length >= plan.limits.maxStudents) {
+      toast.error(`Your ${plan.name} plan caps students at ${plan.limits.maxStudents}. Upgrade to add more.`);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const { data: s, error } = await supabase.from("students").insert({
       center_id: batch.center_id,
@@ -180,6 +190,11 @@ export default function BatchDetail() {
                 <Button onClick={addExisting} disabled={!pickStudent}>Admit</Button>
               </DialogContent>
             </Dialog>
+            {plan.locked.inPersonAdmission ? (
+              <Link to="/app/plans">
+                <Button variant="outline"><Lock className="h-4 w-4 mr-2" /> Admit new · Upgrade</Button>
+              </Link>
+            ) : (
             <Dialog open={openNew} onOpenChange={setOpenNew}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Admit new</Button></DialogTrigger>
               <DialogContent>
@@ -193,6 +208,7 @@ export default function BatchDetail() {
                 </form>
               </DialogContent>
             </Dialog>
+            )}
           </div>
         </div>
 
@@ -255,10 +271,31 @@ export default function BatchDetail() {
           </TabsContent>
 
           <TabsContent value="attendance" className="mt-6">
-            <AttendanceSheet enrollments={enrollments} onChange={load} />
+            {plan.locked.attendance ? (
+              <Card className="p-12 text-center">
+                <div className="h-14 w-14 mx-auto rounded-full bg-gradient-gold flex items-center justify-center shadow-gold mb-4">
+                  <Lock className="h-6 w-6 text-accent-foreground" />
+                </div>
+                <p className="font-semibold text-lg mb-1">Attendance tracking is locked</p>
+                <p className="text-muted-foreground text-sm mb-4">Available on Premium and Enterprise plans.</p>
+                <Link to="/app/plans"><Button>Upgrade plan</Button></Link>
+              </Card>
+            ) : (
+              <AttendanceSheet enrollments={enrollments} onChange={load} />
+            )}
           </TabsContent>
 
           <TabsContent value="live" className="mt-6">
+            {plan.locked.liveClasses ? (
+              <Card className="p-12 text-center">
+                <div className="h-14 w-14 mx-auto rounded-full bg-gradient-gold flex items-center justify-center shadow-gold mb-4">
+                  <Lock className="h-6 w-6 text-accent-foreground" />
+                </div>
+                <p className="font-semibold text-lg mb-1">Live classes are locked</p>
+                <p className="text-muted-foreground text-sm mb-4">Available on Enterprise plan.</p>
+                <Link to="/app/plans"><Button>Upgrade plan</Button></Link>
+              </Card>
+            ) : (
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Live class sessions</h3>
               <Dialog open={openLive} onOpenChange={setOpenLive}>
@@ -288,6 +325,7 @@ export default function BatchDetail() {
                 </Card>
               ))}
             </div>
+            )}
           </TabsContent>
         </Tabs>
 
