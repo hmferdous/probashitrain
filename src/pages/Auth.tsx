@@ -130,7 +130,18 @@ export default function Auth() {
                   />
                   <PasswordStrength password={signupPw} />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="terms"
+                    checked={termsAccepted}
+                    onCheckedChange={(v) => setTermsAccepted(v === true)}
+                  />
+                  <Label htmlFor="terms" className="text-sm font-normal leading-tight cursor-pointer">
+                    I agree to the{" "}
+                    <span className="text-primary cursor-pointer">terms and conditions</span>
+                  </Label>
+                </div>
+                <Button type="submit" className="w-full" disabled={loading || !termsAccepted}>
                   {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Create training center account
                 </Button>
