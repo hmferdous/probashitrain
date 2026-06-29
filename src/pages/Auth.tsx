@@ -31,6 +31,10 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!termsAccepted) {
+      toast.error("You must accept the terms and conditions to sign up");
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const parsed = signupSchema.safeParse({
       full_name: fd.get("full_name"),
