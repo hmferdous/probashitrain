@@ -42,7 +42,7 @@ export default function Landing() {
           </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
             Run your training center.<br />
-            <span className="text-accent-glow">Reach every aspiring পরবাসী.</span>
+            <span className="text-accent-glow">Reach every aspiring migrant.</span>
           </h1>
           <p className="text-lg md:text-xl text-primary-foreground/85 mb-8 max-w-2xl mx-auto">
             The all-in-one B2B SaaS to publish courses to the Ami Probashi app, manage admissions,
