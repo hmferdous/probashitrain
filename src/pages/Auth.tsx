@@ -27,6 +27,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [signupPw, setSignupPw] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
