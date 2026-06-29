@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GraduationCap, Loader2 } from "lucide-react";
@@ -26,9 +27,14 @@ export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [signupPw, setSignupPw] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!termsAccepted) {
+      toast.error("You must accept the terms and conditions to sign up");
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const parsed = signupSchema.safeParse({
       full_name: fd.get("full_name"),
@@ -124,7 +130,18 @@ export default function Auth() {
                   />
                   <PasswordStrength password={signupPw} />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="terms"
+                    checked={termsAccepted}
+                    onCheckedChange={(v) => setTermsAccepted(v === true)}
+                  />
+                  <Label htmlFor="terms" className="text-sm font-normal leading-tight cursor-pointer">
+                    I agree to the{" "}
+                    <span className="text-primary cursor-pointer">terms and conditions</span>
+                  </Label>
+                </div>
+                <Button type="submit" className="w-full" disabled={loading || !termsAccepted}>
                   {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Create training center account
                 </Button>
