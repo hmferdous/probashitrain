@@ -32,9 +32,10 @@ export default function Applications() {
     setBatches(b ?? []);
     const { data: e } = await supabase
       .from("enrollments")
-      .select("*, students(*), batches(name, courses(title))")
+      .select("*, students(*), batches!inner(name, courses(title), center_id)")
       .eq("source", "ami_probashi")
       .eq("pipeline_status", "applied")
+      .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
     setEnrollments(e ?? []);
   };

@@ -8,40 +8,11 @@ import LockedOverlay from "@/components/LockedOverlay";
 import { Card } from "@/components/ui/card";
 import { Layers, BookOpen, CalendarDays, Users, Award, Inbox, TrendingUp, PieChart as PieIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer,
-  XAxis, YAxis, Tooltip, CartesianGrid, Legend
-} from "recharts";
 
 interface Stats {
   trades: number; courses: number; batches: number;
   students: number; applied: number; certified: number;
 }
-
-const enrollmentTrend = [
-  { month: "Jan", students: 12, certified: 4 },
-  { month: "Feb", students: 18, certified: 7 },
-  { month: "Mar", students: 24, certified: 10 },
-  { month: "Apr", students: 31, certified: 14 },
-  { month: "May", students: 28, certified: 18 },
-  { month: "Jun", students: 42, certified: 22 },
-];
-
-const tradeBreakdown = [
-  { name: "Electrical", value: 32 },
-  { name: "Plumbing", value: 24 },
-  { name: "Welding", value: 18 },
-  { name: "Garments", value: 14 },
-  { name: "Driving", value: 12 },
-];
-
-const sourceMix = [
-  { name: "Ami Probashi", value: 64 },
-  { name: "Walk-in", value: 22 },
-  { name: "Referral", value: 14 },
-];
-
-const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--success))", "hsl(var(--info))", "hsl(var(--warning))"];
 
 export default function Dashboard() {
   const { center, profile } = useAuth();
@@ -56,8 +27,8 @@ export default function Dashboard() {
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("batches").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("center_id", center.id),
-        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "applied"),
-        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "certified"),
+        supabase.from("enrollments").select("id, batches!inner(center_id)", { count: "exact", head: true }).eq("pipeline_status", "applied").eq("batches.center_id", center.id),
+        supabase.from("enrollments").select("id, batches!inner(center_id)", { count: "exact", head: true }).eq("pipeline_status", "certified").eq("batches.center_id", center.id),
       ]);
       setStats({
         trades: t.count ?? 0, courses: c.count ?? 0, batches: b.count ?? 0,
@@ -75,6 +46,13 @@ export default function Dashboard() {
     { label: "Certificates issued", value: stats.certified, icon: Award, to: "/app/certificates", color: "bg-accent/15 text-accent" },
   ];
 
+  const chartEmptyState = (
+    <div className="h-[260px] flex flex-col items-center justify-center text-center text-muted-foreground">
+      <p className="text-sm font-medium">No data yet</p>
+      <p className="text-xs mt-1">This fills in once you have enrollments.</p>
+    </div>
+  );
+
   const trendChart = (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -83,17 +61,7 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground">Monthly intake vs certified students</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={enrollmentTrend}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Line type="monotone" dataKey="students" stroke="hsl(var(--primary))" strokeWidth={2} />
-          <Line type="monotone" dataKey="certified" stroke="hsl(var(--accent))" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
+      {chartEmptyState}
     </Card>
   );
 
@@ -101,15 +69,7 @@ export default function Dashboard() {
     <Card className="p-6">
       <h3 className="font-semibold mb-1 flex items-center gap-2"><PieIcon className="h-4 w-4 text-accent" /> Students by Trade</h3>
       <p className="text-xs text-muted-foreground mb-4">Distribution across active programs</p>
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie data={tradeBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-            {tradeBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-          </Pie>
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      {chartEmptyState}
     </Card>
   );
 
@@ -117,15 +77,7 @@ export default function Dashboard() {
     <Card className="p-6">
       <h3 className="font-semibold mb-1">Admission Source Mix</h3>
       <p className="text-xs text-muted-foreground mb-4">Where your students come from</p>
-      <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={sourceMix}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      {chartEmptyState}
     </Card>
   );
 
