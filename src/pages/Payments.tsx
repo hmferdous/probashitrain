@@ -39,21 +39,28 @@ interface Row {
   course_title: string;
   course_price: number;
   source: string;
+  fee_collection: "ami_probashi" | "manual";
   paid: number;
   payments: any[];
 }
+
+const FEE_COLLECTION_LABEL: Record<"ami_probashi" | "manual", string> = {
+  ami_probashi: "Ami Probashi",
+  manual: "Manual",
+};
 
 export default function Payments() {
   const { center } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "ami_probashi" | "manual">("all");
   const [openPay, setOpenPay] = useState<Row | null>(null);
 
   const load = async () => {
     if (!center) return;
     const { data: enrolls } = await supabase
       .from("enrollments")
-      .select("id, source, batch_id, students(id, full_name, phone), batches!inner(id, name, center_id, courses(title, price))")
+      .select("id, source, batch_id, students(id, full_name, phone), batches!inner(id, name, center_id, fee_collection, courses(title, price))")
       .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
     const filtered = enrolls ?? [];
@@ -75,6 +82,7 @@ export default function Payments() {
       course_title: e.batches?.courses?.title ?? "—",
       course_price: Number(e.batches?.courses?.price ?? 0),
       source: e.source,
+      fee_collection: (e.batches?.fee_collection ?? "manual") as "ami_probashi" | "manual",
       paid: (byEnr[e.id] ?? []).reduce((s, p) => s + Number(p.amount), 0),
       payments: byEnr[e.id] ?? [],
     }));
@@ -84,14 +92,16 @@ export default function Payments() {
 
   const filtered = useMemo(
     () =>
-      rows.filter(
-        (r) =>
-          r.student_name.toLowerCase().includes(search.toLowerCase()) ||
-          (r.student_phone ?? "").includes(search) ||
-          r.batch_name.toLowerCase().includes(search.toLowerCase()) ||
-          r.course_title.toLowerCase().includes(search.toLowerCase())
-      ),
-    [rows, search]
+      rows
+        .filter((r) => sourceFilter === "all" || r.fee_collection === sourceFilter)
+        .filter(
+          (r) =>
+            r.student_name.toLowerCase().includes(search.toLowerCase()) ||
+            (r.student_phone ?? "").includes(search) ||
+            r.batch_name.toLowerCase().includes(search.toLowerCase()) ||
+            r.course_title.toLowerCase().includes(search.toLowerCase())
+        ),
+    [rows, search, sourceFilter]
   );
 
   const totals = useMemo(() => {
@@ -114,14 +124,24 @@ export default function Payments() {
           <SummaryCard label="Outstanding" value={totals.due} icon={<Wallet className="h-5 w-5 text-warning" />} />
         </div>
 
-        <div className="relative max-w-md mb-4">
-          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search student, batch, course…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative max-w-md flex-1">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search student, batch, course…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}>
+            <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Fee source" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              <SelectItem value="ami_probashi">Ami Probashi</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {filtered.length === 0 ? (
@@ -149,6 +169,7 @@ export default function Payments() {
                       {r.source === "ami_probashi" && (
                         <Badge variant="outline" className="text-[10px]"><Smartphone className="h-3 w-3 mr-1" />App</Badge>
                       )}
+                      <Badge variant="outline" className="text-[10px]">{FEE_COLLECTION_LABEL[r.fee_collection]}</Badge>
                       <Badge variant="outline" className={`text-[10px] ${statusColor}`}>{status}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground truncate">

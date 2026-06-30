@@ -17,10 +17,26 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  ArrowLeft, UserPlus, Video, Award, ChevronRight, Star, ClipboardCheck, Plus, Lock
+  ArrowLeft, UserPlus, Video, Award, ChevronRight, Star, ClipboardCheck, Plus, Lock, Pencil, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+
+type EligibilityGender = "any" | "male" | "female";
+type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
+type DurationUnit = "hours" | "days" | "weeks" | "months";
+type DocType = "nid" | "education_certificate" | "cv" | "training_certificate" | "photo" | "other";
+type FeeCollection = "ami_probashi" | "manual";
+
+const EDUCATION_LABELS: Record<EducationLevel, string> = {
+  none: "No requirement", jsc: "JSC", ssc: "SSC", hsc: "HSC",
+  diploma: "Diploma", bachelors: "Bachelor's", masters: "Master's",
+};
+const DOC_TYPE_LABELS: Record<DocType, string> = {
+  nid: "NID", education_certificate: "Education certificate", cv: "CV",
+  training_certificate: "Training certificate", photo: "Photo", other: "Other",
+};
+interface DocRequirement { doc_type: DocType; mandatory: boolean; }
 
 type PipelineStatus = "applied" | "shortlisted" | "training_started" | "ongoing" | "completed" | "certified";
 const PIPELINE: { key: PipelineStatus; label: string; color: string }[] = [
@@ -55,6 +71,8 @@ export default function BatchDetail() {
   const [openLive, setOpenLive] = useState(false);
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [pickStudent, setPickStudent] = useState("");
+  const [openEdit, setOpenEdit] = useState(false);
+  const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
 
   const load = async () => {
     if (!id) return;
@@ -63,6 +81,11 @@ export default function BatchDetail() {
       .select("*, courses(title, duration_hours, trades(name))")
       .eq("id", id).maybeSingle();
     setBatch(b);
+    const { data: docs } = await supabase
+      .from("batch_document_requirements")
+      .select("doc_type, mandatory")
+      .eq("batch_id", id);
+    setDocRequirements((docs as any) ?? []);
     const { data: e } = await supabase
       .from("enrollments")
       .select("*, students(id, full_name, phone, email, nid)")
@@ -159,6 +182,48 @@ export default function BatchDetail() {
     load();
   };
 
+  const saveDetails = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!id) return;
+    const fd = new FormData(e.currentTarget);
+    const eligGender = String(fd.get("eligibility_gender") || "unset");
+    const eligEducation = String(fd.get("eligibility_education") || "unset");
+    const eligMinAge = String(fd.get("eligibility_min_age") || "");
+    const eligMaxAge = String(fd.get("eligibility_max_age") || "");
+    const durationValue = String(fd.get("duration_value") || "");
+    const tagsRaw = String(fd.get("tags") || "");
+    const { error } = await supabase.from("batches").update({
+      description: String(fd.get("description") || "").trim() || null,
+      description_bn: String(fd.get("description_bn") || "").trim() || null,
+      requirements_text: String(fd.get("requirements_text") || "").trim() || null,
+      eligibility_gender: eligGender === "unset" ? null : eligGender,
+      eligibility_education: eligEducation === "unset" ? null : eligEducation,
+      eligibility_min_age: eligMinAge ? Number(eligMinAge) : null,
+      eligibility_max_age: eligMaxAge ? Number(eligMaxAge) : null,
+      duration_value: durationValue ? Number(durationValue) : null,
+      duration_unit: String(fd.get("duration_unit") || "hours"),
+      price: fd.get("price") ? Number(fd.get("price")) : null,
+      tags: tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 10) : [],
+      application_deadline: String(fd.get("application_deadline") || "") || null,
+      fee_collection: String(fd.get("fee_collection") || "manual"),
+    } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    await supabase.from("batch_document_requirements").delete().eq("batch_id", id);
+    if (docRequirements.length > 0) {
+      await supabase.from("batch_document_requirements").insert(
+        docRequirements.map((d) => ({ batch_id: id, doc_type: d.doc_type, mandatory: d.mandatory }))
+      );
+    }
+    toast.success("Batch details updated");
+    setOpenEdit(false);
+    load();
+  };
+
+  const addDocRequirement = () => setDocRequirements((d) => [...d, { doc_type: "other", mandatory: true }]);
+  const updateDocRequirement = (i: number, patch: Partial<DocRequirement>) =>
+    setDocRequirements((d) => d.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const removeDocRequirement = (i: number) => setDocRequirements((d) => d.filter((_, idx) => idx !== i));
+
   if (!batch) return <AppLayout><div className="p-8">Loading…</div></AppLayout>;
 
   return (
@@ -177,6 +242,133 @@ export default function BatchDetail() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+              <DialogTrigger asChild><Button variant="outline"><Pencil className="h-4 w-4 mr-2" /> Edit details</Button></DialogTrigger>
+              <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Edit batch details</DialogTitle></DialogHeader>
+                <form onSubmit={saveDetails} className="space-y-4">
+                  <div>
+                    <Label>Tags (comma separated)</Label>
+                    <Input name="tags" maxLength={300} defaultValue={(batch.tags ?? []).join(", ")} placeholder="online, in-person" />
+                  </div>
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea name="description" rows={3} maxLength={2000} defaultValue={batch.description ?? ""} />
+                  </div>
+                  <div>
+                    <Label>Description (Bangla)</Label>
+                    <Textarea name="description_bn" rows={3} maxLength={2000} defaultValue={batch.description_bn ?? ""} />
+                  </div>
+                  <div>
+                    <Label>Requirements (free text, shown to applicants)</Label>
+                    <Textarea name="requirements_text" rows={3} maxLength={2000} defaultValue={batch.requirements_text ?? ""} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Eligible gender</Label>
+                      <Select name="eligibility_gender" defaultValue={batch.eligibility_gender ?? "unset"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unset">Anyone</SelectItem>
+                          <SelectItem value="any">Any</SelectItem>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Minimum education</Label>
+                      <Select name="eligibility_education" defaultValue={batch.eligibility_education ?? "unset"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unset">No requirement</SelectItem>
+                          {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
+                            <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Min age</Label>
+                      <Input name="eligibility_min_age" type="number" min={0} defaultValue={batch.eligibility_min_age ?? ""} />
+                    </div>
+                    <div>
+                      <Label>Max age</Label>
+                      <Input name="eligibility_max_age" type="number" min={0} defaultValue={batch.eligibility_max_age ?? ""} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label>Duration value</Label>
+                      <Input name="duration_value" type="number" min={0} defaultValue={batch.duration_value ?? ""} />
+                    </div>
+                    <div>
+                      <Label>Duration unit</Label>
+                      <Select name="duration_unit" defaultValue={batch.duration_unit ?? "hours"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(["hours", "days", "weeks", "months"] as DurationUnit[]).map((u) => (
+                            <SelectItem key={u} value={u}>{u}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Course fee (৳)</Label>
+                      <Input name="price" type="number" min={0} step="0.01" defaultValue={batch.price ?? ""} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Application deadline</Label>
+                      <Input name="application_deadline" type="date" defaultValue={batch.application_deadline ?? ""} />
+                    </div>
+                    <div>
+                      <Label>Fee collection</Label>
+                      <Select name="fee_collection" defaultValue={(batch.fee_collection as FeeCollection) ?? "manual"}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ami_probashi">Ami Probashi</SelectItem>
+                          <SelectItem value="manual">Manual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Document requirements</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addDocRequirement}>
+                        <Plus className="h-3 w-3 mr-1" /> Add
+                      </Button>
+                    </div>
+                    {docRequirements.map((d, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
+                          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
+                              <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={d.mandatory}
+                            onChange={(ev) => updateDocRequirement(i, { mandatory: ev.target.checked })}
+                          />
+                          Mandatory
+                        </label>
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeDocRequirement(i)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button type="submit" className="w-full">Save details</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
             <Dialog open={openAdd} onOpenChange={setOpenAdd}>
               <DialogTrigger asChild><Button variant="outline"><UserPlus className="h-4 w-4 mr-2" /> Add existing</Button></DialogTrigger>
               <DialogContent>

@@ -20,9 +20,30 @@ import {
 import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+type EligibilityGender = "any" | "male" | "female";
+type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
+type DurationUnit = "hours" | "days" | "weeks" | "months";
+type DocType = "nid" | "education_certificate" | "cv" | "training_certificate" | "photo" | "other";
+
+const EDUCATION_LABELS: Record<EducationLevel, string> = {
+  none: "No requirement", jsc: "JSC", ssc: "SSC", hsc: "HSC",
+  diploma: "Diploma", bachelors: "Bachelor's", masters: "Master's",
+};
+const DOC_TYPE_LABELS: Record<DocType, string> = {
+  nid: "NID", education_certificate: "Education certificate", cv: "CV",
+  training_certificate: "Training certificate", photo: "Photo", other: "Other",
+};
+
 interface Course {
   id: string; code: string; title: string; description: string | null;
+  description_bn: string | null;
   duration_hours: number; price: number | null;
+  duration_value: number | null; duration_unit: DurationUnit | null;
+  requirements_text: string | null;
+  eligibility_gender: EligibilityGender | null;
+  eligibility_min_age: number | null;
+  eligibility_max_age: number | null;
+  eligibility_education: EducationLevel | null;
   trade_id: string | null; tags: string[] | null;
   trades?: { name: string } | null;
 }
@@ -31,6 +52,7 @@ interface Material {
   id: string; course_id: string; file_name: string; file_path: string;
   mime_type: string | null; size_bytes: number | null;
 }
+interface DocRequirement { doc_type: DocType; mandatory: boolean; }
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const formatSize = (n: number | null) => {
@@ -52,11 +74,17 @@ export default function Courses() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [durationUnit, setDurationUnit] = useState<DurationUnit>("hours");
+  const [eligGender, setEligGender] = useState<EligibilityGender | "">("");
+  const [eligEducation, setEligEducation] = useState<EducationLevel | "">("");
+  const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [manageCourse, setManageCourse] = useState<Course | null>(null);
   const [filterTrade, setFilterTrade] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
+
+  const [docReqsByCourse, setDocReqsByCourse] = useState<Record<string, DocRequirement[]>>({});
 
   const openEdit = (c: Course) => {
     setEditing(c);
@@ -64,6 +92,10 @@ export default function Courses() {
     setTags(c.tags ?? []);
     setTagInput("");
     setPendingFiles([]);
+    setDurationUnit(c.duration_unit ?? "hours");
+    setEligGender(c.eligibility_gender ?? "");
+    setEligEducation(c.eligibility_education ?? "");
+    setDocRequirements(docReqsByCourse[c.id] ?? []);
     setOpen(true);
   };
 
@@ -74,9 +106,24 @@ export default function Courses() {
       supabase.from("course_materials").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
       supabase.from("trades").select("id, name").eq("center_id", center.id).order("name"),
     ]);
-    setCourses((c.data as any) ?? []);
+    const courseList = (c.data as any) ?? [];
+    setCourses(courseList);
     setMaterials((m.data as any) ?? []);
     setTrades(t.data ?? []);
+    const ids = courseList.map((x: Course) => x.id);
+    if (ids.length) {
+      const { data: docs } = await supabase
+        .from("course_document_requirements")
+        .select("course_id, doc_type, mandatory")
+        .in("course_id", ids);
+      const grouped: Record<string, DocRequirement[]> = {};
+      (docs ?? []).forEach((d: any) => {
+        (grouped[d.course_id] ??= []).push({ doc_type: d.doc_type, mandatory: d.mandatory });
+      });
+      setDocReqsByCourse(grouped);
+    } else {
+      setDocReqsByCourse({});
+    }
   };
   useEffect(() => { load(); }, [center]);
 
@@ -88,7 +135,15 @@ export default function Courses() {
   const resetForm = () => {
     setEditing(null);
     setTradeId(""); setTags([]); setTagInput(""); setPendingFiles([]);
+    setDurationUnit("hours"); setEligGender(""); setEligEducation(""); setDocRequirements([]);
   };
+
+  const addDocRequirement = () =>
+    setDocRequirements((p) => [...p, { doc_type: "other", mandatory: true }]);
+  const updateDocRequirement = (i: number, patch: Partial<DocRequirement>) =>
+    setDocRequirements((p) => p.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  const removeDocRequirement = (i: number) =>
+    setDocRequirements((p) => p.filter((_, idx) => idx !== i));
 
   const addTag = (raw: string) => {
     const v = raw.trim().slice(0, 30);
@@ -147,16 +202,33 @@ export default function Courses() {
     const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim() || null,
-      duration_hours: Number(fd.get("duration_hours") || 40),
+      description_bn: String(fd.get("description_bn") || "").trim() || null,
       price: Number(fd.get("price") || 0),
+      duration_value: fd.get("duration_value") ? Number(fd.get("duration_value")) : null,
+      duration_unit: durationUnit,
+      requirements_text: String(fd.get("requirements_text") || "").trim() || null,
+      eligibility_gender: eligGender || null,
+      eligibility_min_age: fd.get("eligibility_min_age") ? Number(fd.get("eligibility_min_age")) : null,
+      eligibility_max_age: fd.get("eligibility_max_age") ? Number(fd.get("eligibility_max_age")) : null,
+      eligibility_education: eligEducation || null,
       trade_id: tradeId || null,
       tags,
     };
     setSubmitting(true);
 
+    const saveDocRequirements = async (courseId: string) => {
+      await supabase.from("course_document_requirements").delete().eq("course_id", courseId);
+      if (docRequirements.length) {
+        await supabase.from("course_document_requirements").insert(
+          docRequirements.map((d) => ({ course_id: courseId, doc_type: d.doc_type, mandatory: d.mandatory }))
+        );
+      }
+    };
+
     if (editing) {
       const { error } = await supabase.from("courses").update(payload as any).eq("id", editing.id);
       if (error) { setSubmitting(false); toast.error(error.message); return; }
+      await saveDocRequirements(editing.id);
       if (pendingFiles.length) await uploadFilesForCourse(editing.id, pendingFiles);
       setSubmitting(false);
       toast.success("Course updated");
@@ -175,6 +247,7 @@ export default function Courses() {
       ...payload,
     } as any).select().single();
     if (error || !created) { setSubmitting(false); toast.error(error?.message || "Failed"); return; }
+    await saveDocRequirements(created.id);
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
     setSubmitting(false);
     toast.success(`Course created${pendingFiles.length ? ` with ${pendingFiles.length} file(s)` : ""}`);
@@ -280,45 +353,111 @@ export default function Courses() {
                       </p>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Tags (e.g. online / in-person) are set per batch, not here — one course can run as multiple batches.
+                  </p>
                   <div className="space-y-2">
-                    <Label htmlFor="tags">Tags</Label>
-                    <div className="flex flex-wrap gap-1.5 border rounded-md px-2 py-1.5 min-h-[40px] items-center">
-                      {tags.map((t) => (
-                        <Badge key={t} variant="secondary" className="gap-1">
-                          {t}
-                          <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      <input
-                        id="tags"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={onTagKey}
-                        onBlur={() => tagInput && addTag(tagInput)}
-                        list="tag-suggestions"
-                        placeholder={tags.length ? "" : "Press Enter to add"}
-                        className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1"
-                      />
-                      <datalist id="tag-suggestions">
-                        {tagSuggestions.filter((t) => !tags.includes(t)).map((s) => <option key={s} value={s} />)}
-                      </datalist>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">Description (English)</Label>
                     <Textarea id="description" name="description" rows={3} maxLength={1000} defaultValue={editing?.description ?? ""} />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description_bn">Description (Bangla)</Label>
+                    <Textarea id="description_bn" name="description_bn" rows={3} maxLength={1000} defaultValue={editing?.description_bn ?? ""} />
+                  </div>
+
+                  <div className="space-y-3 border rounded-md p-3">
+                    <Label>Requirements</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="requirements_text" className="text-xs text-muted-foreground font-normal">Free text (optional, shown to applicants)</Label>
+                      <Textarea id="requirements_text" name="requirements_text" rows={2} maxLength={500} defaultValue={editing?.requirements_text ?? ""} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Structured below — used to gate who can apply on the app. Leave any field unset for no restriction.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal">Gender</Label>
+                        <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unset">No restriction</SelectItem>
+                            <SelectItem value="any">Any</SelectItem>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal">Education</Label>
+                        <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unset">No restriction</SelectItem>
+                            {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
+                              <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="eligibility_min_age" className="text-xs font-normal">Min age</Label>
+                        <Input id="eligibility_min_age" name="eligibility_min_age" type="number" min={0} defaultValue={editing?.eligibility_min_age ?? ""} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="eligibility_max_age" className="text-xs font-normal">Max age</Label>
+                        <Input id="eligibility_max_age" name="eligibility_max_age" type="number" min={0} defaultValue={editing?.eligibility_max_age ?? ""} />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="duration_hours">Duration (hrs)</Label>
-                      <Input id="duration_hours" name="duration_hours" type="number" defaultValue={editing?.duration_hours ?? 40} min={1} />
+                      <Label htmlFor="duration_value">Duration</Label>
+                      <div className="flex gap-2">
+                        <Input id="duration_value" name="duration_value" type="number" min={1} className="w-20" defaultValue={editing?.duration_value ?? 40} />
+                        <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
+                          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hours">Hours</SelectItem>
+                            <SelectItem value="days">Days</SelectItem>
+                            <SelectItem value="weeks">Weeks</SelectItem>
+                            <SelectItem value="months">Months</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="price">Price (BDT)</Label>
                       <Input id="price" name="price" type="number" defaultValue={editing?.price ?? 0} min={0} />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Document requirements</Label>
+                    {docRequirements.length > 0 && (
+                      <ul className="space-y-1.5">
+                        {docRequirements.map((d, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
+                              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
+                                  <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                              <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
+                              Mandatory
+                            </label>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
