@@ -296,6 +296,7 @@ export default function BatchDetail() {
                 <Link to="/app/plans"><Button>Upgrade plan</Button></Link>
               </Card>
             ) : (
+            <>
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Live class sessions</h3>
               <Dialog open={openLive} onOpenChange={setOpenLive}>
@@ -325,6 +326,7 @@ export default function BatchDetail() {
                 </Card>
               ))}
             </div>
+            </>
             )}
           </TabsContent>
         </Tabs>
