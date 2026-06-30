@@ -53,9 +53,10 @@ export default function Payments() {
     if (!center) return;
     const { data: enrolls } = await supabase
       .from("enrollments")
-      .select("id, source, batch_id, students(id, full_name, phone), batches(id, name, center_id, courses(title, price))")
+      .select("id, source, batch_id, students(id, full_name, phone), batches!inner(id, name, center_id, courses(title, price))")
+      .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
-    const filtered = (enrolls ?? []).filter((e: any) => e.batches?.center_id === center.id);
+    const filtered = enrolls ?? [];
     const ids = filtered.map((e: any) => e.id);
     const { data: pays } = ids.length
       ? await (supabase.from as any)("payments").select("*").in("enrollment_id", ids)

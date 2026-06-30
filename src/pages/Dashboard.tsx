@@ -12,41 +12,26 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from "recharts";
+import { format, startOfMonth, subMonths } from "date-fns";
 
 interface Stats {
   trades: number; courses: number; batches: number;
   students: number; applied: number; certified: number;
 }
 
-const enrollmentTrend = [
-  { month: "Jan", students: 12, certified: 4 },
-  { month: "Feb", students: 18, certified: 7 },
-  { month: "Mar", students: 24, certified: 10 },
-  { month: "Apr", students: 31, certified: 14 },
-  { month: "May", students: 28, certified: 18 },
-  { month: "Jun", students: 42, certified: 22 },
-];
-
-const tradeBreakdown = [
-  { name: "Electrical", value: 32 },
-  { name: "Plumbing", value: 24 },
-  { name: "Welding", value: 18 },
-  { name: "Garments", value: 14 },
-  { name: "Driving", value: 12 },
-];
-
-const sourceMix = [
-  { name: "Ami Probashi", value: 64 },
-  { name: "Walk-in", value: 22 },
-  { name: "Referral", value: 14 },
-];
+interface TrendPoint { month: string; students: number; certified: number }
+interface NamedValue { name: string; value: number }
 
 const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--success))", "hsl(var(--info))", "hsl(var(--warning))"];
+const SOURCE_LABEL: Record<string, string> = { ami_probashi: "Ami Probashi", manual: "Manual entry" };
 
 export default function Dashboard() {
   const { center, profile } = useAuth();
   const { plan } = usePlan();
   const [stats, setStats] = useState<Stats>({ trades: 0, courses: 0, batches: 0, students: 0, applied: 0, certified: 0 });
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [tradeBreakdown, setTradeBreakdown] = useState<NamedValue[]>([]);
+  const [sourceMix, setSourceMix] = useState<NamedValue[]>([]);
 
   useEffect(() => {
     if (!center) return;
@@ -56,13 +41,46 @@ export default function Dashboard() {
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("batches").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("center_id", center.id),
-        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "applied"),
-        supabase.from("enrollments").select("id", { count: "exact", head: true }).eq("pipeline_status", "certified"),
+        supabase.from("enrollments").select("id, batches!inner(center_id)", { count: "exact", head: true }).eq("pipeline_status", "applied").eq("batches.center_id", center.id),
+        supabase.from("enrollments").select("id, batches!inner(center_id)", { count: "exact", head: true }).eq("pipeline_status", "certified").eq("batches.center_id", center.id),
       ]);
       setStats({
         trades: t.count ?? 0, courses: c.count ?? 0, batches: b.count ?? 0,
         students: s.count ?? 0, applied: a.count ?? 0, certified: cert.count ?? 0,
       });
+
+      const { data: enrolls } = await supabase
+        .from("enrollments")
+        .select("applied_at, certificate_issued_at, source, batches!inner(center_id, courses(trades(name)))")
+        .eq("batches.center_id", center.id);
+      const rows = enrolls ?? [];
+
+      const months = Array.from({ length: 6 }, (_, i) => startOfMonth(subMonths(new Date(), 5 - i)));
+      const trendData: TrendPoint[] = months.map((m) => {
+        const label = format(m, "MMM");
+        const next = startOfMonth(subMonths(m, -1));
+        const inMonth = (d: string | null) => d && new Date(d) >= m && new Date(d) < next;
+        return {
+          month: label,
+          students: rows.filter((r: any) => inMonth(r.applied_at)).length,
+          certified: rows.filter((r: any) => inMonth(r.certificate_issued_at)).length,
+        };
+      });
+      setTrend(trendData);
+
+      const tradeCounts: Record<string, number> = {};
+      rows.forEach((r: any) => {
+        const name = r.batches?.courses?.trades?.name;
+        if (name) tradeCounts[name] = (tradeCounts[name] ?? 0) + 1;
+      });
+      setTradeBreakdown(Object.entries(tradeCounts).map(([name, value]) => ({ name, value })));
+
+      const sourceCounts: Record<string, number> = {};
+      rows.forEach((r: any) => {
+        const label = SOURCE_LABEL[r.source] ?? r.source;
+        sourceCounts[label] = (sourceCounts[label] ?? 0) + 1;
+      });
+      setSourceMix(Object.entries(sourceCounts).map(([name, value]) => ({ name, value })));
     })();
   }, [center]);
 
@@ -75,6 +93,15 @@ export default function Dashboard() {
     { label: "Certificates issued", value: stats.certified, icon: Award, to: "/app/certificates", color: "bg-accent/15 text-accent" },
   ];
 
+  const chartEmptyState = (
+    <div className="h-[260px] flex flex-col items-center justify-center text-center text-muted-foreground">
+      <p className="text-sm font-medium">No data yet</p>
+      <p className="text-xs mt-1">This fills in once you have enrollments.</p>
+    </div>
+  );
+
+  const hasTrendData = trend.some((p) => p.students > 0 || p.certified > 0);
+
   const trendChart = (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -83,17 +110,19 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground">Monthly intake vs certified students</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={enrollmentTrend}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Line type="monotone" dataKey="students" stroke="hsl(var(--primary))" strokeWidth={2} />
-          <Line type="monotone" dataKey="certified" stroke="hsl(var(--accent))" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
+      {hasTrendData ? (
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={trend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line type="monotone" dataKey="students" name="Enrolled" stroke="hsl(var(--primary))" strokeWidth={2} />
+            <Line type="monotone" dataKey="certified" name="Certified" stroke="hsl(var(--accent))" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : chartEmptyState}
     </Card>
   );
 
@@ -101,15 +130,17 @@ export default function Dashboard() {
     <Card className="p-6">
       <h3 className="font-semibold mb-1 flex items-center gap-2"><PieIcon className="h-4 w-4 text-accent" /> Students by Trade</h3>
       <p className="text-xs text-muted-foreground mb-4">Distribution across active programs</p>
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie data={tradeBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-            {tradeBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-          </Pie>
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-        </PieChart>
-      </ResponsiveContainer>
+      {tradeBreakdown.length > 0 ? (
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={tradeBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
+              {tradeBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+            </Pie>
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      ) : chartEmptyState}
     </Card>
   );
 
@@ -117,15 +148,17 @@ export default function Dashboard() {
     <Card className="p-6">
       <h3 className="font-semibold mb-1">Admission Source Mix</h3>
       <p className="text-xs text-muted-foreground mb-4">Where your students come from</p>
-      <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={sourceMix}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-          <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      {sourceMix.length > 0 ? (
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={sourceMix}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : chartEmptyState}
     </Card>
   );
 
