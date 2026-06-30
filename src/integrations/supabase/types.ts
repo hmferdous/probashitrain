@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       attendance: {
@@ -79,48 +104,134 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_document_requirements: {
+        Row: {
+          batch_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          mandatory: boolean
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          mandatory?: boolean
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          mandatory?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_document_requirements_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batches: {
         Row: {
+          application_deadline: string | null
           capacity: number
           center_id: string
           course_id: string
           created_at: string
+          description: string | null
+          description_bn: string | null
+          duration_unit: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value: number | null
+          eligibility_education:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age: number | null
+          eligibility_min_age: number | null
           end_date: string
+          fee_collection: Database["public"]["Enums"]["fee_collection_method"]
           id: string
           instructor_id: string | null
           name: string
+          price: number | null
+          published_at: string | null
           published_to_ami_probashi: boolean
+          requirements_text: string | null
           schedule_notes: string | null
           start_date: string
           status: Database["public"]["Enums"]["batch_status"]
+          tags: string[]
         }
         Insert: {
+          application_deadline?: string | null
           capacity?: number
           center_id: string
           course_id: string
           created_at?: string
+          description?: string | null
+          description_bn?: string | null
+          duration_unit?: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value?: number | null
+          eligibility_education?:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender?:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age?: number | null
+          eligibility_min_age?: number | null
           end_date: string
+          fee_collection?: Database["public"]["Enums"]["fee_collection_method"]
           id?: string
           instructor_id?: string | null
           name: string
+          price?: number | null
+          published_at?: string | null
           published_to_ami_probashi?: boolean
+          requirements_text?: string | null
           schedule_notes?: string | null
           start_date: string
           status?: Database["public"]["Enums"]["batch_status"]
+          tags?: string[]
         }
         Update: {
+          application_deadline?: string | null
           capacity?: number
           center_id?: string
           course_id?: string
           created_at?: string
+          description?: string | null
+          description_bn?: string | null
+          duration_unit?: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value?: number | null
+          eligibility_education?:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender?:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age?: number | null
+          eligibility_min_age?: number | null
           end_date?: string
+          fee_collection?: Database["public"]["Enums"]["fee_collection_method"]
           id?: string
           instructor_id?: string | null
           name?: string
+          price?: number | null
+          published_at?: string | null
           published_to_ami_probashi?: boolean
+          requirements_text?: string | null
           schedule_notes?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["batch_status"]
+          tags?: string[]
         }
         Relationships: [
           {
@@ -181,6 +292,38 @@ export type Database = {
         }
         Relationships: []
       }
+      course_document_requirements: {
+        Row: {
+          course_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          mandatory: boolean
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          mandatory?: boolean
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          mandatory?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_document_requirements_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_materials: {
         Row: {
           center_id: string
@@ -225,9 +368,21 @@ export type Database = {
           cover_image_url: string | null
           created_at: string
           description: string | null
+          description_bn: string | null
           duration_hours: number
+          duration_unit: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value: number | null
+          eligibility_education:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age: number | null
+          eligibility_min_age: number | null
           id: string
           price: number | null
+          requirements_text: string | null
           tags: string[]
           title: string
           trade_id: string | null
@@ -239,9 +394,21 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
+          description_bn?: string | null
           duration_hours?: number
+          duration_unit?: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value?: number | null
+          eligibility_education?:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender?:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age?: number | null
+          eligibility_min_age?: number | null
           id?: string
           price?: number | null
+          requirements_text?: string | null
           tags?: string[]
           title: string
           trade_id?: string | null
@@ -253,9 +420,21 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
+          description_bn?: string | null
           duration_hours?: number
+          duration_unit?: Database["public"]["Enums"]["duration_unit"] | null
+          duration_value?: number | null
+          eligibility_education?:
+            | Database["public"]["Enums"]["education_level"]
+            | null
+          eligibility_gender?:
+            | Database["public"]["Enums"]["eligibility_gender"]
+            | null
+          eligibility_max_age?: number | null
+          eligibility_min_age?: number | null
           id?: string
           price?: number | null
+          requirements_text?: string | null
           tags?: string[]
           title?: string
           trade_id?: string | null
@@ -684,6 +863,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      unpublish_expired_batches: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "center_admin" | "instructor"
@@ -701,6 +881,17 @@ export type Database = {
         | "training_certificate"
         | "photo"
         | "other"
+      duration_unit: "hours" | "days" | "weeks" | "months"
+      education_level:
+        | "none"
+        | "jsc"
+        | "ssc"
+        | "hsc"
+        | "diploma"
+        | "bachelors"
+        | "masters"
+      eligibility_gender: "any" | "male" | "female"
+      fee_collection_method: "ami_probashi" | "manual"
       payment_method:
         | "cash"
         | "ami_probashi"
@@ -840,6 +1031,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["center_admin", "instructor"],
@@ -859,6 +1053,18 @@ export const Constants = {
         "photo",
         "other",
       ],
+      duration_unit: ["hours", "days", "weeks", "months"],
+      education_level: [
+        "none",
+        "jsc",
+        "ssc",
+        "hsc",
+        "diploma",
+        "bachelors",
+        "masters",
+      ],
+      eligibility_gender: ["any", "male", "female"],
+      fee_collection_method: ["ami_probashi", "manual"],
       payment_method: [
         "cash",
         "ami_probashi",
