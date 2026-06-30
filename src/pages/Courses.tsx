@@ -14,15 +14,19 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
 import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface Course {
   id: string; code: string; title: string; description: string | null;
   duration_hours: number; price: number | null;
-  trade_id: string | null; category: string | null; tags: string[] | null;
+  trade_id: string | null; tags: string[] | null;
   trades?: { name: string } | null;
 }
+interface Trade { id: string; name: string; }
 interface Material {
   id: string; course_id: string; file_name: string; file_path: string;
   mime_type: string | null; size_bytes: number | null;
@@ -41,21 +45,22 @@ export default function Courses() {
   const { plan } = usePlan();
   const [courses, setCourses] = useState<Course[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
-  const [category, setCategory] = useState("");
+  const [tradeId, setTradeId] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [manageCourse, setManageCourse] = useState<Course | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>("");
+  const [filterTrade, setFilterTrade] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
 
   const openEdit = (c: Course) => {
     setEditing(c);
-    setCategory(c.category ?? "");
+    setTradeId(c.trade_id ?? "");
     setTags(c.tags ?? []);
     setTagInput("");
     setPendingFiles([]);
@@ -64,19 +69,17 @@ export default function Courses() {
 
   const load = async () => {
     if (!center) return;
-    const [c, m] = await Promise.all([
+    const [c, m, t] = await Promise.all([
       supabase.from("courses").select("*, trades(name)").eq("center_id", center.id).order("created_at", { ascending: false }),
       supabase.from("course_materials").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
+      supabase.from("trades").select("id, name").eq("center_id", center.id).order("name"),
     ]);
     setCourses((c.data as any) ?? []);
     setMaterials((m.data as any) ?? []);
+    setTrades(t.data ?? []);
   };
   useEffect(() => { load(); }, [center]);
 
-  const categorySuggestions = useMemo(
-    () => Array.from(new Set(courses.map((c) => c.category).filter(Boolean) as string[])).sort(),
-    [courses]
-  );
   const tagSuggestions = useMemo(
     () => Array.from(new Set(courses.flatMap((c) => c.tags ?? []))).sort(),
     [courses]
@@ -84,7 +87,7 @@ export default function Courses() {
 
   const resetForm = () => {
     setEditing(null);
-    setCategory(""); setTags([]); setTagInput(""); setPendingFiles([]);
+    setTradeId(""); setTags([]); setTagInput(""); setPendingFiles([]);
   };
 
   const addTag = (raw: string) => {
@@ -139,13 +142,14 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
+    if (!tradeId) { toast.error("Select a trade"); return; }
     const fd = new FormData(e.currentTarget);
     const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim() || null,
       duration_hours: Number(fd.get("duration_hours") || 40),
       price: Number(fd.get("price") || 0),
-      category: category.trim().slice(0, 60) || null,
+      trade_id: tradeId || null,
       tags,
     };
     setSubmitting(true);
@@ -217,22 +221,17 @@ export default function Courses() {
 
   const materialsByCourse = (id: string) => materials.filter((m) => m.course_id === id);
 
-  const displayBadge = (c: Course) => c.category || c.trades?.name || "Uncategorized";
+  const displayBadge = (c: Course) => c.trades?.name ?? "No trade";
 
   const visibleCourses = useMemo(() => {
     const q = search.trim().toLowerCase();
     return courses.filter((c) => {
-      if (filterCategory && displayBadge(c) !== filterCategory) return false;
+      if (filterTrade && c.trade_id !== filterTrade) return false;
       if (filterTag && !(c.tags ?? []).includes(filterTag)) return false;
       if (q && !c.title.toLowerCase().includes(q) && !(c.description ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [courses, filterCategory, filterTag, search]);
-
-  const allCategoryOptions = useMemo(
-    () => Array.from(new Set(courses.map(displayBadge))).sort(),
-    [courses]
-  );
+  }, [courses, filterTrade, filterTag, search]);
 
   return (
     <AppLayout>
@@ -264,18 +263,22 @@ export default function Courses() {
                     <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      maxLength={60}
-                      placeholder="e.g. Electrical, IT, Caregiving"
-                      list="category-suggestions"
-                    />
-                    <datalist id="category-suggestions">
-                      {categorySuggestions.map((s) => <option key={s} value={s} />)}
-                    </datalist>
+                    <Label htmlFor="trade">Trade *</Label>
+                    <Select value={tradeId} onValueChange={setTradeId}>
+                      <SelectTrigger id="trade">
+                        <SelectValue placeholder={trades.length ? "Select a trade" : "No trades yet — create one first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trades.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {trades.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        <Link to="/app/trades" className="text-primary font-medium">Create a trade</Link> before adding a course.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tags">Tags</Label>
@@ -380,12 +383,12 @@ export default function Courses() {
               />
             </div>
             <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
+              value={filterTrade}
+              onChange={(e) => setFilterTrade(e.target.value)}
               className="h-9 rounded-md border bg-background px-2 text-sm"
             >
-              <option value="">All categories</option>
-              {allCategoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="">All trades</option>
+              {trades.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             {tagSuggestions.length > 0 && (
               <select
@@ -397,8 +400,8 @@ export default function Courses() {
                 {tagSuggestions.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
-            {(filterCategory || filterTag || search) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterCategory(""); setFilterTag(""); setSearch(""); }}>
+            {(filterTrade || filterTag || search) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterTrade(""); setFilterTag(""); setSearch(""); }}>
                 Clear
               </Button>
             )}
