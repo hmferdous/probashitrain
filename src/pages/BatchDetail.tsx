@@ -347,29 +347,45 @@ export default function BatchDetail() {
   );
 }
 
+type AttStatus = "present" | "absent" | "late";
+type AttRow = { status?: AttStatus; sign_in_time?: string | null; sign_out_time?: string | null };
+
 function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[]; onChange: () => void }) {
   const [date, setDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [marks, setMarks] = useState<Record<string, "present" | "absent" | "late">>({});
+  const [rows, setRows] = useState<Record<string, AttRow>>({});
 
   useEffect(() => {
     if (enrollments.length === 0) return;
     (async () => {
       const ids = enrollments.map((e) => e.id);
       const { data } = await supabase.from("attendance").select("*").in("enrollment_id", ids).eq("session_date", date);
-      const map: Record<string, any> = {};
-      (data ?? []).forEach((a: any) => { map[a.enrollment_id] = a.status; });
-      setMarks(map);
+      const map: Record<string, AttRow> = {};
+      (data ?? []).forEach((a: any) => {
+        map[a.enrollment_id] = {
+          status: a.status,
+          sign_in_time: a.sign_in_time ? String(a.sign_in_time).slice(0, 5) : null,
+          sign_out_time: a.sign_out_time ? String(a.sign_out_time).slice(0, 5) : null,
+        };
+      });
+      setRows(map);
     })();
   }, [date, enrollments]);
 
-  const mark = async (enrId: string, status: "present" | "absent" | "late") => {
-    setMarks((m) => ({ ...m, [enrId]: status }));
+  const save = async (enrId: string, patch: Partial<AttRow>) => {
+    const next: AttRow = { ...(rows[enrId] ?? {}), ...patch };
+    setRows((m) => ({ ...m, [enrId]: next }));
     const { error } = await supabase.from("attendance").upsert(
-      { enrollment_id: enrId, session_date: date, status },
+      {
+        enrollment_id: enrId,
+        session_date: date,
+        status: next.status ?? "present",
+        sign_in_time: next.sign_in_time || null,
+        sign_out_time: next.sign_out_time || null,
+      } as any,
       { onConflict: "enrollment_id,session_date" }
     );
     if (error) toast.error(error.message);
-    onChange();
+    else onChange();
   };
 
   if (enrollments.length === 0) return <Card className="p-8 text-center text-muted-foreground">No students enrolled yet.</Card>;
@@ -381,31 +397,57 @@ function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[];
         <Label>Date:</Label>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
       </div>
-      <div className="divide-y">
-        {enrollments.map((e) => (
-          <div key={e.id} className="py-3 flex items-center justify-between">
-            <div>
-              <div className="font-medium">{e.students.full_name}</div>
-              <div className="text-xs text-muted-foreground">{e.students.phone || e.students.email || "—"}</div>
-            </div>
-            <div className="flex gap-1">
-              {(["present", "absent", "late"] as const).map((st) => (
-                <Button
-                  key={st}
-                  size="sm"
-                  variant={marks[e.id] === st ? "default" : "outline"}
-                  onClick={() => mark(e.id, st)}
-                  className={marks[e.id] === st ?
-                    (st === "present" ? "bg-success hover:bg-success/90" :
-                     st === "absent" ? "bg-destructive hover:bg-destructive/90" :
-                     "bg-warning hover:bg-warning/90 text-warning-foreground") : ""}
-                >
-                  {st}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-medium">Student</th>
+              <th className="px-3 py-2 font-medium">Contact</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Sign-in <span className="text-muted-foreground font-normal">(optional)</span></th>
+              <th className="px-3 py-2 font-medium">Sign-out <span className="text-muted-foreground font-normal">(optional)</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {enrollments.map((e) => {
+              const row = rows[e.id] ?? {};
+              return (
+                <tr key={e.id} className="align-middle">
+                  <td className="px-3 py-2 font-medium">{e.students.full_name}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{e.students.phone || e.students.email || "—"}</td>
+                  <td className="px-3 py-2">
+                    <select
+                      value={row.status ?? ""}
+                      onChange={(ev) => save(e.id, { status: ev.target.value as AttStatus })}
+                      className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                      <option value="" disabled>—</option>
+                      {(["present", "absent", "late"] as AttStatus[]).map((s) => (
+                        <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="time"
+                      value={row.sign_in_time ?? ""}
+                      onChange={(ev) => save(e.id, { sign_in_time: ev.target.value })}
+                      className="w-32"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="time"
+                      value={row.sign_out_time ?? ""}
+                      onChange={(ev) => save(e.id, { sign_out_time: ev.target.value })}
+                      className="w-32"
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </Card>
   );

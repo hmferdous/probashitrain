@@ -21,6 +21,8 @@ export type Database = {
           id: string
           marked_by: string | null
           session_date: string
+          sign_in_time: string | null
+          sign_out_time: string | null
           status: Database["public"]["Enums"]["attendance_status"]
         }
         Insert: {
@@ -29,6 +31,8 @@ export type Database = {
           id?: string
           marked_by?: string | null
           session_date: string
+          sign_in_time?: string | null
+          sign_out_time?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
         }
         Update: {
@@ -37,6 +41,8 @@ export type Database = {
           id?: string
           marked_by?: string | null
           session_date?: string
+          sign_in_time?: string | null
+          sign_out_time?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
         }
         Relationships: [
