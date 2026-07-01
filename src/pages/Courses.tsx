@@ -319,7 +319,7 @@ export default function Courses() {
                   <Plus className="h-4 w-4 mr-2" /> Add course
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editing ? "Edit course" : "New course"}</DialogTitle>
                 </DialogHeader>
@@ -604,7 +604,7 @@ export default function Courses() {
         )}
 
         <Dialog open={!!manageCourse} onOpenChange={(o) => !o && setManageCourse(null)}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Reading materials — {manageCourse?.title}</DialogTitle>
             </DialogHeader>
