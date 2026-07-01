@@ -276,7 +276,7 @@ export default function Batches() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Session name *</Label>
+                    <Label htmlFor="name">Batch name *</Label>
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
