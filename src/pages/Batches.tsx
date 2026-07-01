@@ -257,7 +257,7 @@ export default function Batches() {
               <DialogTrigger asChild>
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
