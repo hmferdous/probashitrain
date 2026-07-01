@@ -257,7 +257,7 @@ export default function Batches() {
               <DialogTrigger asChild>
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
@@ -276,7 +276,7 @@ export default function Batches() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Session name *</Label>
+                    <Label htmlFor="name">Batch name *</Label>
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -324,11 +324,7 @@ export default function Batches() {
 
                   <div className="space-y-3 border rounded-md p-3">
                     <Label>Requirements</Label>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground font-normal">Free text (optional, shown to applicants)</Label>
-                      <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Structured below — used to gate who can apply on the app. Leave any field unset for no restriction.</p>
+                    <p className="text-xs text-muted-foreground">Used to gate who can apply on the app. Leave any field unset for no restriction.</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-normal">Gender</Label>
@@ -362,6 +358,10 @@ export default function Batches() {
                         <Label className="text-xs font-normal">Max age</Label>
                         <Input type="number" min={0} value={eligMaxAge} onChange={(e) => setEligMaxAge(e.target.value)} />
                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground font-normal">Additional notes (optional, shown to applicants)</Label>
+                      <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
                     </div>
                   </div>
 

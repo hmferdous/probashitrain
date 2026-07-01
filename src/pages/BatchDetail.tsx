@@ -259,10 +259,6 @@ export default function BatchDetail() {
                     <Label>Description (Bangla)</Label>
                     <Textarea name="description_bn" rows={3} maxLength={2000} defaultValue={batch.description_bn ?? ""} />
                   </div>
-                  <div>
-                    <Label>Requirements (free text, shown to applicants)</Label>
-                    <Textarea name="requirements_text" rows={3} maxLength={2000} defaultValue={batch.requirements_text ?? ""} />
-                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Eligible gender</Label>
@@ -296,6 +292,10 @@ export default function BatchDetail() {
                       <Label>Max age</Label>
                       <Input name="eligibility_max_age" type="number" min={0} defaultValue={batch.eligibility_max_age ?? ""} />
                     </div>
+                  </div>
+                  <div>
+                    <Label>Additional notes (optional, shown to applicants)</Label>
+                    <Textarea name="requirements_text" rows={3} maxLength={2000} defaultValue={batch.requirements_text ?? ""} />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
