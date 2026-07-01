@@ -367,11 +367,7 @@ export default function Courses() {
 
                   <div className="space-y-3 border rounded-md p-3">
                     <Label>Requirements</Label>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="requirements_text" className="text-xs text-muted-foreground font-normal">Free text (optional, shown to applicants)</Label>
-                      <Textarea id="requirements_text" name="requirements_text" rows={2} maxLength={500} defaultValue={editing?.requirements_text ?? ""} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Structured below — used to gate who can apply on the app. Leave any field unset for no restriction.</p>
+                    <p className="text-xs text-muted-foreground">Used to gate who can apply on the app. Leave any field unset for no restriction.</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-normal">Gender</Label>
@@ -405,6 +401,10 @@ export default function Courses() {
                         <Label htmlFor="eligibility_max_age" className="text-xs font-normal">Max age</Label>
                         <Input id="eligibility_max_age" name="eligibility_max_age" type="number" min={0} defaultValue={editing?.eligibility_max_age ?? ""} />
                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="requirements_text" className="text-xs text-muted-foreground font-normal">Additional notes (optional, shown to applicants)</Label>
+                      <Textarea id="requirements_text" name="requirements_text" rows={2} maxLength={500} defaultValue={editing?.requirements_text ?? ""} />
                     </div>
                   </div>
 
