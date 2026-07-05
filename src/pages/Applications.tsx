@@ -6,7 +6,8 @@ import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, Check, X, Sparkles } from "lucide-react";
+import { Smartphone, Check, X, Sparkles, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 const MOCK_NAMES = [
@@ -21,6 +22,7 @@ export default function Applications() {
   const { center } = useAuth();
   const [batches, setBatches] = useState<any[]>([]);
   const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [shortlistedBatchId, setShortlistedBatchId] = useState<string | null>(null);
 
   const load = async () => {
     if (!center) return;
@@ -59,19 +61,17 @@ export default function Applications() {
     load();
   };
 
-  const decide = async (enrId: string, accept: boolean) => {
+  const decide = async (enrId: string, accept: boolean, batchId?: string) => {
     const { error } = await supabase.from("enrollments").update({
-      pipeline_status: accept ? "shortlisted" : "applied",
+      pipeline_status: accept ? "shortlisted" : "rejected",
     }).eq("id", enrId);
+    if (error) { toast.error(error.message); return; }
     if (accept) {
-      // simply moving forward
-      toast.success("Shortlisted");
+      setShortlistedBatchId(batchId ?? null);
+      toast.success("Shortlisted — student moved to batch pipeline");
     } else {
-      const { error: delErr } = await supabase.from("enrollments").delete().eq("id", enrId);
-      if (delErr) toast.error(delErr.message);
-      else toast.success("Application rejected");
+      toast.success("Application rejected");
     }
-    if (error && accept) toast.error(error.message);
     load();
   };
 
@@ -87,6 +87,16 @@ export default function Applications() {
             </Button>
           }
         />
+        {shortlistedBatchId && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-success/30 bg-success/5 px-4 py-3">
+            <p className="text-sm text-success font-medium">Student shortlisted. Continue in the batch pipeline.</p>
+            <Link to={`/app/batches/${shortlistedBatchId}`}>
+              <Button size="sm" variant="outline" className="gap-1">
+                Go to batch <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        )}
         {enrollments.length === 0 ? (
           <Card className="p-12 text-center">
             <Smartphone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -106,16 +116,19 @@ export default function Applications() {
                   <div className="min-w-0">
                     <div className="font-medium truncate">{e.students.full_name}</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {e.students.phone} · Applied for <span className="font-medium">{e.batches?.courses?.title} — {e.batches?.name}</span>
+                      {e.students.phone} · Applied for{" "}
+                      <Link to={`/app/batches/${e.batch_id}`} className="font-medium hover:underline">
+                        {e.batches?.courses?.title} — {e.batches?.name}
+                      </Link>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="outline" className="text-[10px]">📱 Ami Probashi</Badge>
-                  <Button size="sm" variant="outline" onClick={() => decide(e.id, false)}>
-                    <X className="h-4 w-4" />
+                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => decide(e.id, false)}>
+                    <X className="h-4 w-4 mr-1" /> Reject
                   </Button>
-                  <Button size="sm" onClick={() => decide(e.id, true)}>
+                  <Button size="sm" onClick={() => decide(e.id, true, e.batch_id)}>
                     <Check className="h-4 w-4 mr-1" /> Shortlist
                   </Button>
                 </div>

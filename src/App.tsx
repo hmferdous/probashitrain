@@ -26,6 +26,7 @@ import Certificates from "./pages/Certificates";
 import Payments from "./pages/Payments";
 import Invoice from "./pages/Invoice";
 import Certificate from "./pages/Certificate";
+import UserManagement from "./pages/UserManagement";
 import SeoLandingPage from "./pages/seo/SeoLandingPage";
 import SeoHub from "./pages/seo/SeoHub";
 import NotFound from "./pages/NotFound";
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/app/payments/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
             <Route path="/app/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
             <Route path="/app/branches-management" element={<ProtectedRoute><Branches /></ProtectedRoute>} />
+            <Route path="/app/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/resources" element={<SeoHub />} />
             {SEO_SLUGS.map((slug) => (
               <Route key={slug} path={`/${slug}`} element={<SeoLandingPage />} />
