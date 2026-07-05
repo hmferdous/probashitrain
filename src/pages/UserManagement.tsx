@@ -5,7 +5,6 @@ import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,7 +21,8 @@ import { toast } from "sonner";
 interface CenterUser {
   user_id: string;
   role: "center_admin" | "instructor";
-  profiles: { full_name: string; phone: string | null; avatar_url: string | null } | null;
+  full_name: string;
+  phone: string | null;
   branch_ids: string[];
 }
 
@@ -36,15 +36,30 @@ interface PendingInvite {
   email: string;
   role: string;
   token: string;
-  status: string;
   created_at: string;
-  expires_at: string;
 }
 
 const ROLE_CONFIG = {
-  center_admin: { label: "Admin",      color: "bg-primary/10 text-primary border-primary/20",    icon: ShieldCheck },
-  instructor:   { label: "Instructor", color: "bg-info/10 text-info border-info/20",              icon: GraduationCap },
+  center_admin: { label: "Admin",      color: "bg-primary/10 text-primary border-primary/20",  icon: ShieldCheck },
+  instructor:   { label: "Instructor", color: "bg-info/10 text-info border-info/20",            icon: GraduationCap },
 };
+
+// localStorage helpers — invites and branch assignments are demo-only
+const LS_INVITES = (centerId: string) => `invites_${centerId}`;
+const LS_BRANCHES = (centerId: string) => `user_branches_${centerId}`;
+
+function getStoredInvites(centerId: string): PendingInvite[] {
+  try { return JSON.parse(localStorage.getItem(LS_INVITES(centerId)) ?? "[]"); } catch { return []; }
+}
+function saveInvites(centerId: string, invites: PendingInvite[]) {
+  localStorage.setItem(LS_INVITES(centerId), JSON.stringify(invites));
+}
+function getStoredBranches(centerId: string): Record<string, string[]> {
+  try { return JSON.parse(localStorage.getItem(LS_BRANCHES(centerId)) ?? "{}"); } catch { return {}; }
+}
+function saveBranches(centerId: string, map: Record<string, string[]>) {
+  localStorage.setItem(LS_BRANCHES(centerId), JSON.stringify(map));
+}
 
 export default function UserManagement() {
   const { center, user: me } = useAuth();
@@ -56,56 +71,73 @@ export default function UserManagement() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"center_admin" | "instructor">("instructor");
-  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     if (!center) return;
 
-    const [{ data: roles }, { data: branchData }, { data: ub }, { data: inv }] = await Promise.all([
-      supabase.from("user_roles").select("user_id, role, profiles(full_name, phone, avatar_url)").eq("center_id", center.id),
-      supabase.from("branches").select("id, name_en").eq("center_id", center.id).order("name_en"),
-      supabase.from("user_branches" as any).select("user_id, branch_id").eq("center_id", center.id),
-      supabase.from("pending_invites" as any).select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
-    ]);
+    // Fetch user_roles + profiles in two steps (no direct FK between them)
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("center_id", center.id);
 
-    const branchMap: Record<string, string[]> = {};
-    ((ub ?? []) as any[]).forEach((r: any) => {
-      branchMap[r.user_id] = [...(branchMap[r.user_id] ?? []), r.branch_id];
-    });
+    const { data: branchData } = await supabase
+      .from("branches")
+      .select("id, name_en")
+      .eq("center_id", center.id)
+      .order("name_en");
 
-    setUsers(((roles ?? []) as any[]).map((r: any) => ({
-      user_id: r.user_id,
-      role: r.role,
-      profiles: r.profiles,
-      branch_ids: branchMap[r.user_id] ?? [],
-    })));
+    const branchMap = getStoredBranches(center.id);
+
+    if (roles && roles.length > 0) {
+      const userIds = roles.map(r => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone")
+        .in("id", userIds);
+
+      const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]));
+
+      setUsers(roles.map(r => ({
+        user_id: r.user_id,
+        role: r.role as "center_admin" | "instructor",
+        full_name: profileMap[r.user_id]?.full_name ?? "Unknown",
+        phone: profileMap[r.user_id]?.phone ?? null,
+        branch_ids: branchMap[r.user_id] ?? [],
+      })));
+    } else {
+      setUsers([]);
+    }
+
     setBranches(branchData ?? []);
-    setInvites((inv ?? []) as any[]);
+    setInvites(getStoredInvites(center.id));
   };
 
   useEffect(() => { load(); }, [center]);
 
-  const sendInvite = async () => {
-    if (!center || !me || !inviteEmail.trim()) return;
-    setSaving(true);
-    const { error } = await (supabase.from("pending_invites" as any) as any).insert({
-      center_id: center.id,
+  const sendInvite = () => {
+    if (!center || !inviteEmail.trim()) return;
+    const newInvite: PendingInvite = {
+      id: crypto.randomUUID(),
       email: inviteEmail.trim().toLowerCase(),
       role: inviteRole,
-      created_by: me.id,
-    });
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Invite created — copy and share the link");
+      token: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+    const updated = [newInvite, ...getStoredInvites(center.id)];
+    saveInvites(center.id, updated);
+    setInvites(updated);
     setInviteEmail("");
     setOpenInvite(false);
-    load();
+    toast.success("Invite created — copy and share the link");
   };
 
-  const revokeInvite = async (id: string) => {
-    await (supabase.from("pending_invites" as any) as any).delete().eq("id", id);
-    toast.success("Invite revoked");
-    load();
+  const revokeInvite = (id: string) => {
+    if (!center) return;
+    const updated = getStoredInvites(center.id).filter(i => i.id !== id);
+    saveInvites(center.id, updated);
+    setInvites(updated);
+    toast.success("Invite removed");
   };
 
   const changeRole = async (userId: string, role: "center_admin" | "instructor") => {
@@ -116,16 +148,16 @@ export default function UserManagement() {
     load();
   };
 
-  const toggleBranch = async (cu: CenterUser, branchId: string) => {
+  const toggleBranch = (cu: CenterUser, branchId: string) => {
     if (!center) return;
-    const has = cu.branch_ids.includes(branchId);
-    if (has) {
-      await (supabase.from("user_branches" as any) as any).delete().eq("user_id", cu.user_id).eq("branch_id", branchId);
-    } else {
-      await (supabase.from("user_branches" as any) as any).insert({ user_id: cu.user_id, center_id: center.id, branch_id: branchId });
-    }
-    load();
-    setOpenBranches((prev) => prev ? { ...prev, branch_ids: has ? prev.branch_ids.filter(b => b !== branchId) : [...prev.branch_ids, branchId] } : prev);
+    const map = getStoredBranches(center.id);
+    const current = map[cu.user_id] ?? [];
+    const has = current.includes(branchId);
+    map[cu.user_id] = has ? current.filter(b => b !== branchId) : [...current, branchId];
+    saveBranches(center.id, map);
+    // update local state immediately
+    setOpenBranches(prev => prev ? { ...prev, branch_ids: map[cu.user_id] } : prev);
+    setUsers(prev => prev.map(u => u.user_id === cu.user_id ? { ...u, branch_ids: map[cu.user_id] } : u));
   };
 
   const copyLink = (token: string) => {
@@ -159,6 +191,7 @@ export default function UserManagement() {
                       placeholder="trainer@example.com"
                       value={inviteEmail}
                       onChange={e => setInviteEmail(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && sendInvite()}
                     />
                   </div>
                   <div>
@@ -174,7 +207,7 @@ export default function UserManagement() {
                   <p className="text-xs text-muted-foreground">
                     An invite link will be generated. Share it with the person — they'll register and land directly in your center.
                   </p>
-                  <Button className="w-full" onClick={sendInvite} disabled={saving || !inviteEmail.trim()}>
+                  <Button className="w-full" onClick={sendInvite} disabled={!inviteEmail.trim()}>
                     Generate invite link
                   </Button>
                 </div>
@@ -185,13 +218,15 @@ export default function UserManagement() {
 
         {/* Active users */}
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Active users ({users.length})</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            Active users ({users.length})
+          </h2>
           <Card className="divide-y">
             {users.length === 0 && (
               <div className="p-8 text-center text-muted-foreground text-sm">No users found.</div>
             )}
             {users.map((cu) => {
-              const cfg = ROLE_CONFIG[cu.role];
+              const cfg = ROLE_CONFIG[cu.role] ?? ROLE_CONFIG.instructor;
               const Icon = cfg.icon;
               const isMe = cu.user_id === me?.id;
               const branchNames = cu.branch_ids.map(bid => branches.find(b => b.id === bid)?.name_en).filter(Boolean);
@@ -199,14 +234,14 @@ export default function UserManagement() {
                 <div key={cu.user_id} className="p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0 text-sm">
-                      {cu.profiles?.full_name ? initials(cu.profiles.full_name) : "?"}
+                      {initials(cu.full_name)}
                     </div>
                     <div className="min-w-0">
                       <div className="font-medium flex items-center gap-2">
-                        {cu.profiles?.full_name ?? "Unknown"}
+                        {cu.full_name}
                         {isMe && <span className="text-xs text-muted-foreground">(you)</span>}
                       </div>
-                      <div className="text-xs text-muted-foreground">{cu.profiles?.phone ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{cu.phone ?? "—"}</div>
                       {branchNames.length > 0 && (
                         <div className="flex gap-1 mt-1 flex-wrap">
                           {branchNames.map(n => (
@@ -251,34 +286,30 @@ export default function UserManagement() {
         {/* Pending invites */}
         {invites.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Pending invites ({invites.length})</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Pending invites ({invites.length})
+            </h2>
             <Card className="divide-y">
-              {invites.map((inv) => {
-                const expired = new Date(inv.expires_at) < new Date();
-                return (
-                  <div key={inv.id} className="p-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">{inv.email}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.label ?? inv.role} ·{" "}
-                        {expired ? <span className="text-destructive">Expired</span> : `Expires ${new Date(inv.expires_at).toLocaleDateString()}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!expired && (
-                        <Button size="sm" variant="outline" onClick={() => copyLink(inv.token)}>
-                          {copiedToken === inv.token
-                            ? <><Check className="h-3.5 w-3.5 mr-1 text-success" /> Copied</>
-                            : <><Copy className="h-3.5 w-3.5 mr-1" /> Copy link</>}
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => revokeInvite(inv.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+              {invites.map((inv) => (
+                <div key={inv.id} className="p-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm truncate">{inv.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.label ?? inv.role} · Created {new Date(inv.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => copyLink(inv.token)}>
+                      {copiedToken === inv.token
+                        ? <><Check className="h-3.5 w-3.5 mr-1 text-success" /> Copied</>
+                        : <><Copy className="h-3.5 w-3.5 mr-1" /> Copy link</>}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => revokeInvite(inv.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </Card>
           </div>
         )}
@@ -287,10 +318,10 @@ export default function UserManagement() {
         <Dialog open={!!openBranches} onOpenChange={(o) => !o && setOpenBranches(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Branch access — {openBranches?.profiles?.full_name}</DialogTitle>
+              <DialogTitle>Branch access — {openBranches?.full_name}</DialogTitle>
             </DialogHeader>
             <p className="text-xs text-muted-foreground">
-              Assign branches this user can access. No selection means access to all branches.
+              Tick the branches this user can access. No selection means access to all branches.
             </p>
             <div className="space-y-2 pt-2">
               {branches.map(b => {
@@ -309,7 +340,7 @@ export default function UserManagement() {
                 );
               })}
               {branches.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No branches set up yet.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No branches set up yet. Add branches first.</p>
               )}
             </div>
           </DialogContent>
