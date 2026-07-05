@@ -245,6 +245,22 @@ export default function BatchDetail() {
         <Link to="/app/batches" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4">
           <ArrowLeft className="h-4 w-4" /> Back to batches
         </Link>
+        {/* Batch lifecycle banner */}
+        {batch.status === "draft" && (
+          <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+            <span className="font-semibold">Draft batch.</span> Publish this batch from the Batches page to start accepting applications and enrollments.
+          </div>
+        )}
+        {batch.status === "published" && !batch.published_to_ami_probashi && (
+          <div className="mb-4 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm text-info">
+            <span className="font-semibold">Published.</span> Toggle "Publish to Ami Probashi" on the Batches page to make this batch discoverable by 9M+ students on the mobile app.
+          </div>
+        )}
+        {batch.status === "published" && batch.published_to_ami_probashi && (
+          <div className="mb-4 rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+            <span className="font-semibold">Live on Ami Probashi.</span> Students can discover and apply from the mobile app. Review incoming applications in the Applications page.
+          </div>
+        )}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
             <Badge variant="secondary" className="mb-2">{batch.courses?.trades?.name} · {batch.courses?.title}</Badge>
@@ -427,7 +443,29 @@ export default function BatchDetail() {
 
           {/* ── Pipeline tab ── */}
           <TabsContent value="pipeline" className="mt-6 space-y-4">
-            {/* Status summary bar */}
+            {/* Journey stepper */}
+            <div className="flex items-center gap-0 overflow-x-auto pb-1">
+              {(["applied","shortlisted","training_started","ongoing","completed","certified"] as PipelineStatus[]).map((s, i, arr) => {
+                const count = statusCounts[s] ?? 0;
+                const cfg = STATUS_CONFIG[s];
+                return (
+                  <div key={s} className="flex items-center shrink-0">
+                    <div className={`flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium border ${count > 0 ? cfg.color : "bg-muted/30 text-muted-foreground border-muted"}`}>
+                      <span className="text-base font-bold">{count}</span>
+                      <span>{cfg.label}</span>
+                    </div>
+                    {i < arr.length - 1 && <div className="h-px w-4 bg-border shrink-0" />}
+                  </div>
+                );
+              })}
+              {statusCounts["rejected"] ? (
+                <div className="ml-4 flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium border bg-destructive/10 text-destructive border-destructive/30">
+                  <span className="text-base font-bold">{statusCounts["rejected"]}</span>
+                  <span>Rejected</span>
+                </div>
+              ) : null}
+            </div>
+            {/* Status count pills */}
             {enrollments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {(Object.keys(STATUS_CONFIG) as PipelineStatus[]).map((s) =>
