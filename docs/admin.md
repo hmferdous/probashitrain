@@ -7,7 +7,7 @@ There are currently two roles in the system, stored in `user_roles`.
 | Role | Who | What they can do |
 |---|---|---|
 | `center_admin` | Institute owner / manager | Full access to all features within their center |
-| `instructor` | Teacher / trainer | Can view students and batches assigned to them; mark attendance; start/join live sessions; enter grades |
+| `instructor` | Teacher / trainer | Assigned batches, attendance marking, live classes, student view (read-only) |
 
 > **Coordinator/Manager** role is on the roadmap but not yet implemented. Currently everything that isn't instructor-specific falls to `center_admin`.
 
@@ -47,13 +47,9 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
 - Certificates Issued (pipeline_status = `certified`)
 
 **Charts (Premium+, locked behind `plan.locked.advancedCharts`):**
-- Enrollment & Certification Trend — LineChart (monthly, hardcoded demo data for now)
-- Students by Trade — PieChart (hardcoded demo data)
-- Admission Source Mix — BarChart (`ami_probashi` vs walk-in vs referral — hardcoded demo)
-
-> Charts use hardcoded demo data currently. Real aggregation from DB is future work.
-
-**Get Started CTA card:** shown at the bottom, links to add a trade or publish a batch.
+- Enrollment & Certification Trend — LineChart (monthly, real data from enrollments)
+- Students by Trade — PieChart (real data)
+- Admission Source Mix — BarChart (`ami_probashi` vs manual)
 
 ---
 
@@ -77,32 +73,48 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
 **Purpose:** Manage scheduled runs of a course.
 
 **Admin can:**
-- Create a batch (name, course, start/end date, capacity, instructor, schedule notes, branch assignment)
+- Create a batch (name, course, start/end date, branch capacity, optional instructors, schedule notes, eligibility/requirements, fee collection mode, tags, application deadline)
 - Set batch status: `draft → published → in_progress → completed → archived`
 - Toggle `published_to_ami_probashi` to make the batch visible on the AP mobile app
 
-**Instructor sees:** only batches where `batches.instructor_id = auth.uid()`
+**Instructor multiselect:** During batch creation, admins can assign one or more instructors from the center's active instructor list. Assignments are stored in `batch_instructors`. If no instructors are assigned, the batch is visible to all instructors.
+
+**Instructor sees:** batches assigned to them via `batch_instructors` (or all batches if unassigned — enforcement TBD).
+
+**Contextual lifecycle banners in BatchDetail:**
+- Draft → prompt to publish
+- Published (not on AP app) → prompt to toggle Ami Probashi
+- Published + on AP app → confirms live status
 
 ### Batch Detail — `/app/batches/:id`
 
 The main operational screen for a batch. Contains:
 
-**Enrollment pipeline tab:**
-- Lists all enrollments with their `pipeline_status`
-- Admin can move students through: `applied → shortlisted → training_started → ongoing → completed → certified`
-- Issuing a certificate sets `pipeline_status = 'certified'` and stamps `certificate_issued_at`
+**Pipeline tab:**
+- Journey stepper at the top showing student counts per stage
+- Table listing all enrollments with status badge, contact, score, source, action buttons
+- Contextual action buttons per status (no inline dropdowns):
+  - `applied` → Shortlist, Reject
+  - `shortlisted` → Start training, Reject
+  - `in_training` → Mark complete
+  - `completed` → Grade, Issue certificate
+  - `certified` → Grade, View certificate
+  - `rejected` → Reinstate
+- Rejected students remain in the table (not deleted) and can be reinstated
+- Click any student name → StudentDetailDialog with:
+  - **Full profile** button (top-right) — navigates to `/app/students/:id` and closes dialog
+  - **Comments tab** — add/view/delete internal notes on the enrollment (`enrollment_comments` table)
+  - **Payment tab** — record cash payments, view payment history, open invoice
 
 **Attendance tab:**
 - Date picker → mark present/absent/late per student for that day
-- One attendance record per `(enrollment_id, session_date)`
+- Rejected students are filtered out of the attendance sheet
 
 **Live Sessions tab:**
 - Create a live session (title, scheduled_at, jitsi_room name)
 - Toggle `is_live` to make it joinable
 
-**Payments tab:**
-- Record a payment against an enrollment
-- Invoice auto-generated via `generate_invoice_no()`
+**Edit details dialog:** Edit batch-level fields post-creation: description (EN + BN), eligibility (gender, education, age range), requirements notes, duration, price, application deadline, fee collection mode, tags, document requirements.
 
 ---
 
@@ -112,8 +124,10 @@ The main operational screen for a batch. Contains:
 
 **Admin can:**
 - View all enrollments with `source = 'ami_probashi'` and `pipeline_status = 'applied'`
-- Shortlist or reject applicants
-- See applicant profile data pulled from the AP app submission
+- **Shortlist** → sets status to `shortlisted`; shows "Go to batch" callout linking to the batch pipeline
+- **Reject** → sets status to `rejected` (student is NOT deleted — visible in batch pipeline with Reinstate option)
+- Batch name on each row links directly to the batch detail page
+- "Simulate app applications" button seeds 5 mock students for demo/testing
 
 ---
 
@@ -201,7 +215,7 @@ Renders the certificate for a single enrollment using the template/builder confi
 
 **Purpose:** Payment ledger for the center.
 
-Lists all payments across all enrollments, showing invoice number, student, batch, amount, method, date.
+Lists all payments across all enrollments, showing invoice number, student, batch, amount, method, date, and fee collection source. Filterable by fee collection source (`ami_probashi` vs `manual`).
 
 ### Invoice — `/app/payments/:id`
 
@@ -235,6 +249,28 @@ Shows three plan cards: Basic (৳0), Premium (৳4,999/mo), Enterprise (Custom)
 
 ---
 
+### User Management — `/app/users`
+
+**Purpose:** Manage portal users (admins and instructors) and their access.
+
+**Admin can:**
+- View all active users in the center with their role badge
+- Change another user's role inline (cannot change own role)
+- Assign branch access to instructors via a toggle dialog — no branch selected = access to all branches
+- Invite a new user: enter name, email, phone (optional), role, and branches → generates a `pending_invites` record (localStorage) and a copyable invite link (`/auth?invite=<token>`)
+- Revoke a pending invite
+
+**Invite flow (demo mode):**
+The invite link is generated and copyable but the registration-via-token flow is not yet built. Invited users cannot self-register yet — this requires a future Edge Function or server-side handler.
+
+**Branch assignments** are stored in `localStorage` keyed by `center_id` (demo-mode). The `user_branches` DB table exists via migration but is not yet read for enforcement.
+
+**Role access description** is shown inline when selecting a role:
+- *Admin*: Full access — all pages
+- *Instructor*: Assigned Batches, Attendance, Live Classes, Student view (read-only)
+
+---
+
 ## Sidebar Navigation Groups
 
 ```
@@ -242,7 +278,8 @@ Overview
   └── Dashboard
 
 Institute Management
-  └── Branch Management
+  ├── Branch Management
+  └── User Management
 
 Academics
   ├── Courses
