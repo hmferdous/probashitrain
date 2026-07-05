@@ -33,15 +33,28 @@ interface Branch {
 
 interface PendingInvite {
   id: string;
+  name: string;
   email: string;
+  phone: string;
   role: string;
+  branch_ids: string[];
   token: string;
   created_at: string;
 }
 
 const ROLE_CONFIG = {
-  center_admin: { label: "Admin",      color: "bg-primary/10 text-primary border-primary/20",  icon: ShieldCheck },
-  instructor:   { label: "Instructor", color: "bg-info/10 text-info border-info/20",            icon: GraduationCap },
+  center_admin: {
+    label: "Admin",
+    color: "bg-primary/10 text-primary border-primary/20",
+    icon: ShieldCheck,
+    access: "Full access — Dashboard, Courses, Batches, Students, Applications, Attendance, Certificates, Payments, Live Classes, Branch & User Management",
+  },
+  instructor: {
+    label: "Instructor",
+    color: "bg-info/10 text-info border-info/20",
+    icon: GraduationCap,
+    access: "Limited access — Assigned Batches, Attendance marking, Live Classes, Student view (read-only)",
+  },
 };
 
 // localStorage helpers — invites and branch assignments are demo-only
@@ -69,8 +82,11 @@ export default function UserManagement() {
   const [openInvite, setOpenInvite] = useState(false);
   const [openBranches, setOpenBranches] = useState<CenterUser | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState<"center_admin" | "instructor">("instructor");
+  const [inviteBranches, setInviteBranches] = useState<string[]>([]);
 
   const load = async () => {
     if (!center) return;
@@ -115,19 +131,27 @@ export default function UserManagement() {
 
   useEffect(() => { load(); }, [center]);
 
+  const resetInviteForm = () => {
+    setInviteName(""); setInviteEmail(""); setInvitePhone("");
+    setInviteRole("instructor"); setInviteBranches([]);
+  };
+
   const sendInvite = () => {
-    if (!center || !inviteEmail.trim()) return;
+    if (!center || !inviteName.trim() || !inviteEmail.trim()) return;
     const newInvite: PendingInvite = {
       id: crypto.randomUUID(),
+      name: inviteName.trim(),
       email: inviteEmail.trim().toLowerCase(),
+      phone: invitePhone.trim(),
       role: inviteRole,
+      branch_ids: inviteBranches,
       token: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
     const updated = [newInvite, ...getStoredInvites(center.id)];
     saveInvites(center.id, updated);
     setInvites(updated);
-    setInviteEmail("");
+    resetInviteForm();
     setOpenInvite(false);
     toast.success("Invite created — copy and share the link");
   };
@@ -177,21 +201,37 @@ export default function UserManagement() {
           title="User Management"
           description="Manage who has access to this portal and their branch assignments."
           action={
-            <Dialog open={openInvite} onOpenChange={setOpenInvite}>
+            <Dialog open={openInvite} onOpenChange={(o) => { setOpenInvite(o); if (!o) resetInviteForm(); }}>
               <DialogTrigger asChild>
                 <Button><UserPlus className="h-4 w-4 mr-2" /> Invite user</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-sm">
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Invite a user</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-2">
                   <div>
-                    <Label>Email address</Label>
+                    <Label>Full name <span className="text-destructive">*</span></Label>
+                    <Input
+                      placeholder="e.g. Md. Rahim Uddin"
+                      value={inviteName}
+                      onChange={e => setInviteName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Email address <span className="text-destructive">*</span></Label>
                     <Input
                       type="email"
                       placeholder="trainer@example.com"
                       value={inviteEmail}
                       onChange={e => setInviteEmail(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && sendInvite()}
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                    <Input
+                      type="tel"
+                      placeholder="+880 1X XX XXX XXX"
+                      value={invitePhone}
+                      onChange={e => setInvitePhone(e.target.value)}
                     />
                   </div>
                   <div>
@@ -203,11 +243,39 @@ export default function UserManagement() {
                         <SelectItem value="center_admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      {ROLE_CONFIG[inviteRole].access}
+                    </p>
                   </div>
+                  {branches.length > 0 && (
+                    <div>
+                      <Label>Branch access <span className="text-muted-foreground text-xs">(optional — leave blank for all branches)</span></Label>
+                      <div className="mt-2 space-y-1.5">
+                        {branches.map(b => {
+                          const selected = inviteBranches.includes(b.id);
+                          return (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => setInviteBranches(prev =>
+                                selected ? prev.filter(id => id !== b.id) : [...prev, b.id]
+                              )}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors ${
+                                selected ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/50"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2"><GitBranch className="h-3.5 w-3.5" />{b.name_en}</span>
+                              {selected && <Check className="h-4 w-4" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     An invite link will be generated. Share it with the person — they'll register and land directly in your center.
                   </p>
-                  <Button className="w-full" onClick={sendInvite} disabled={!inviteEmail.trim()}>
+                  <Button className="w-full" onClick={sendInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>
                     Generate invite link
                   </Button>
                 </div>
@@ -290,12 +358,25 @@ export default function UserManagement() {
               Pending invites ({invites.length})
             </h2>
             <Card className="divide-y">
-              {invites.map((inv) => (
+              {invites.map((inv) => {
+                const invBranchNames = (inv.branch_ids ?? []).map(bid => branches.find(b => b.id === bid)?.name_en).filter(Boolean);
+                return (
                 <div key={inv.id} className="p-4 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-medium text-sm truncate">{inv.email}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.label ?? inv.role} · Created {new Date(inv.created_at).toLocaleDateString()}
+                    <div className="font-medium text-sm truncate">{inv.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{inv.email}{inv.phone ? ` · ${inv.phone}` : ""}</div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.color ?? ""}`}>
+                        {ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.label ?? inv.role}
+                      </span>
+                      {invBranchNames.length > 0
+                        ? invBranchNames.map(n => (
+                            <span key={n} className="inline-flex items-center gap-0.5 text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                              <GitBranch className="h-2.5 w-2.5" />{n}
+                            </span>
+                          ))
+                        : <span className="text-[10px] text-muted-foreground">All branches</span>
+                      }
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -309,7 +390,8 @@ export default function UserManagement() {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </Card>
           </div>
         )}
