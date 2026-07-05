@@ -74,9 +74,11 @@ export default function Batches() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
+  const [selectedInstructors, setSelectedInstructors] = useState<string[]>([]);
 
   // Batch-level editable copies, auto-populated from the selected course.
   const [description, setDescription] = useState("");
@@ -96,7 +98,7 @@ export default function Batches() {
 
   const load = async () => {
     if (!center) return;
-    const [b, c, br] = await Promise.all([
+    const [b, c, br, roles] = await Promise.all([
       supabase
         .from("batches")
         .select("*, courses(title, trades(name))")
@@ -104,7 +106,15 @@ export default function Batches() {
         .order("start_date", { ascending: false }),
       supabase.from("courses").select("*").eq("center_id", center.id),
       supabase.from("branches").select("id, name_en, name_bn").eq("center_id", center.id).order("name_en"),
+      supabase.from("user_roles").select("user_id").eq("center_id", center.id).eq("role", "instructor"),
     ]);
+    if (roles.data && roles.data.length > 0) {
+      const ids = roles.data.map((r: any) => r.user_id);
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      setInstructors((profiles ?? []).map((p: any) => ({ id: p.id, full_name: p.full_name })));
+    } else {
+      setInstructors([]);
+    }
     const batchList = (b.data as any[]) ?? [];
     const ids = batchList.map((x) => x.id);
     if (ids.length) {
@@ -129,7 +139,7 @@ export default function Batches() {
   };
 
   const resetForm = () => {
-    setSelectedCourse(""); setBranchCaps({});
+    setSelectedCourse(""); setBranchCaps({}); setSelectedInstructors([]);
     setDescription(""); setDescriptionBn(""); setRequirementsText("");
     setEligGender(""); setEligEducation(""); setEligMinAge(""); setEligMaxAge("");
     setDurationValue(""); setDurationUnit("hours"); setPrice("");
@@ -228,6 +238,11 @@ export default function Batches() {
     if (docRequirements.length) {
       await supabase.from("batch_document_requirements").insert(
         docRequirements.map((d) => ({ batch_id: created.id, doc_type: d.doc_type, mandatory: d.mandatory }))
+      );
+    }
+    if (selectedInstructors.length) {
+      await (supabase.from("batch_instructors" as any) as any).insert(
+        selectedInstructors.map((uid) => ({ batch_id: created.id, user_id: uid, center_id: center.id }))
       );
     }
     toast.success("Session created");
@@ -472,6 +487,40 @@ export default function Batches() {
                                 }
                               />
                             </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {/* Instructor multiselect */}
+                  <div className="space-y-2">
+                    <Label>
+                      Instructors <span className="text-muted-foreground text-xs">(optional — leave blank for all to see)</span>
+                    </Label>
+                    {instructors.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No instructors added yet. Invite instructors from User Management.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {instructors.map((inst) => {
+                          const selected = selectedInstructors.includes(inst.id);
+                          return (
+                            <button
+                              key={inst.id}
+                              type="button"
+                              onClick={() => setSelectedInstructors((prev) =>
+                                selected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
+                              )}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border hover:bg-muted/50 text-muted-foreground"
+                              }`}
+                            >
+                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
+                                {inst.full_name.charAt(0).toUpperCase()}
+                              </span>
+                              {inst.full_name}
+                            </button>
                           );
                         })}
                       </div>

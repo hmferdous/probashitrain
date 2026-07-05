@@ -74,6 +74,7 @@ export default function BatchDetail() {
   const { plan } = usePlan();
   const { center, user } = useAuth();
   const [batch, setBatch] = useState<any>(null);
+  const [batchInstructors, setBatchInstructors] = useState<{ id: string; full_name: string }[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [students, setStudents] = useState<{ id: string; full_name: string }[]>([]);
   const [openAdd, setOpenAdd] = useState(false);
@@ -93,6 +94,15 @@ export default function BatchDetail() {
       .select("*, courses(title, duration_hours, trades(name))")
       .eq("id", id).maybeSingle();
     setBatch(b);
+    // Load assigned instructors
+    const { data: bi } = await (supabase.from("batch_instructors" as any) as any)
+      .select("user_id").eq("batch_id", id);
+    if (bi && bi.length > 0) {
+      const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", bi.map((r: any) => r.user_id));
+      setBatchInstructors((profiles ?? []).map((p: any) => ({ id: p.id, full_name: p.full_name })));
+    } else {
+      setBatchInstructors([]);
+    }
     const { data: docs } = await supabase
       .from("batch_document_requirements")
       .select("doc_type, mandatory")
@@ -269,6 +279,16 @@ export default function BatchDetail() {
               {format(new Date(batch.start_date), "MMM d")} → {format(new Date(batch.end_date), "MMM d, yyyy")} ·
               Capacity {batch.capacity} · {activeEnrollments.length} enrolled
             </p>
+            {batchInstructors.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-xs text-muted-foreground">Instructors:</span>
+                {batchInstructors.map((inst) => (
+                  <span key={inst.id} className="inline-flex items-center gap-1 text-xs bg-info/10 text-info border border-info/20 px-2 py-0.5 rounded-full">
+                    {inst.full_name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex gap-2 flex-wrap">
             {/* Edit details dialog */}
