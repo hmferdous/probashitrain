@@ -24,14 +24,19 @@ Users are linked to their center via `profiles.center_id`.
 ## Enums
 
 ```sql
-app_role:          center_admin | instructor
-batch_status:      draft | published | in_progress | completed | archived
-pipeline_status:   applied | shortlisted | training_started | ongoing | completed | certified
-attendance_status: present | absent | late
-student_source:    ami_probashi | manual
-payment_method:    cash | ami_probashi | bank | mobile_banking | other
-document_type:     nid | education_certificate | cv | training_certificate | photo | other
+app_role:             center_admin | instructor
+batch_status:         draft | published | in_progress | completed | archived
+pipeline_status:      applied | shortlisted | training_started | ongoing | completed | certified | rejected
+attendance_status:    present | absent | late
+student_source:       ami_probashi | manual
+payment_method:       cash | ami_probashi | bank | mobile_banking | other
+document_type:        nid | education_certificate | cv | training_certificate | photo | other
+fee_collection_method: ami_probashi | manual
 ```
+
+**`pipeline_status` notes:**
+- `rejected` was added in migration 10. Rejected students are NOT deleted — they stay in the enrollment table with status `rejected` and can be reinstated.
+- `ongoing` is a legacy value kept for backwards compatibility. New code treats it the same as `training_started` ("In Training"). The active pipeline flow is: `applied → shortlisted → training_started → completed → certified`. `rejected` is a side-branch reachable from `applied` or `shortlisted`.
 
 ---
 
@@ -117,14 +122,14 @@ supabase.from("courses").select("*").contains("tags", ["electrical"])
 ---
 
 ### `batches`
-A scheduled run of a course with seats, dates, and an instructor.
+A scheduled run of a course with seats, dates, and optional instructor assignments.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | center_id | uuid NOT NULL | |
 | course_id | uuid NOT NULL | References courses |
-| instructor_id | uuid | References auth.users — nullable |
+| instructor_id | uuid | References auth.users — **legacy single-instructor field**, use `batch_instructors` instead |
 | name | text NOT NULL | e.g. "Batch 12 — June 2026" |
 | start_date | date NOT NULL | |
 | end_date | date NOT NULL | |
@@ -132,11 +137,26 @@ A scheduled run of a course with seats, dates, and an instructor.
 | status | batch_status | Default `draft` |
 | published_to_ami_probashi | boolean | Default false |
 | schedule_notes | text | |
+| description | text | English description |
+| description_bn | text | Bangla description |
+| requirements_text | text | Prerequisites / requirements notes |
+| eligibility_gender | text | e.g. "male", "female", "any" |
+| eligibility_education | text | e.g. "SSC", "HSC" |
+| eligibility_min_age | int | |
+| eligibility_max_age | int | |
+| duration_value | int | Numeric duration (e.g. 3) |
+| duration_unit | text | "days", "weeks", "months" |
+| price | numeric(10,2) | Course fee |
+| tags | text[] | Default `'{}'` |
+| application_deadline | date | |
+| fee_collection | fee_collection_method | Default `manual` |
 | created_at | timestamptz | |
 
 **Status lifecycle:** `draft → published → in_progress → completed → archived`
 
 Setting `published_to_ami_probashi = true` on a `published` or `in_progress` batch makes it visible to students on the Ami Probashi app.
+
+**Multi-instructor:** Use the `batch_instructors` junction table instead of `instructor_id`. If a batch has no entries in `batch_instructors`, all instructors in the center can see it.
 
 ---
 
@@ -151,6 +171,26 @@ Maps which branches a batch runs at, with per-branch capacity.
 | capacity | int | Default 30 |
 | created_at | timestamptz | |
 | — | UNIQUE | `(batch_id, branch_id)` |
+
+---
+
+### `batch_instructors`
+Junction table assigning instructors to batches. Added in migration 13.
+
+> **Migration status:** Not yet run in production. Tables created locally only. Use `as any` casts until `supabase gen types` is re-run after applying the migration.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| batch_id | uuid NOT NULL | References batches — CASCADE DELETE |
+| user_id | uuid NOT NULL | References auth.users — CASCADE DELETE |
+| center_id | uuid NOT NULL | References training_centers — for RLS |
+| created_at | timestamptz | |
+| — | UNIQUE | `(batch_id, user_id)` |
+
+**RLS:** All center members can SELECT. Only `center_admin` can INSERT/DELETE.
+
+If a batch has zero rows in this table, the batch is visible to all instructors.
 
 ---
 
@@ -214,8 +254,10 @@ The join between a student and a batch. Tracks the full lifecycle from applicati
 
 **Pipeline status lifecycle:**
 ```
-applied → shortlisted → training_started → ongoing → completed → certified
+applied → shortlisted → training_started → completed → certified
+                ↘ rejected (from applied or shortlisted; can be reinstated)
 ```
+`ongoing` is a legacy value — displays identically to `training_started` ("In Training").
 
 ---
 
@@ -267,6 +309,61 @@ Payment records. Each payment is linked to an enrollment. Multiple payments per 
 | created_at | timestamptz | |
 
 **Indexes:** `idx_payments_enrollment`, `idx_payments_center`
+
+---
+
+### `enrollment_comments`
+Internal notes on an enrollment. Added in migration 10.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| enrollment_id | uuid NOT NULL | References enrollments — CASCADE DELETE |
+| center_id | uuid NOT NULL | Denormalized for RLS |
+| author_id | uuid NOT NULL | References auth.users |
+| content | text NOT NULL | |
+| created_at | timestamptz | |
+
+**RLS:** All center members can SELECT and INSERT. Only `center_admin` can DELETE.
+
+---
+
+### `user_branches`
+Assigns instructors to specific branches, scoping their batch visibility.
+
+> **Migration status:** Migration written (`20260705120000_user_branches_pending_invites.sql`) but **not yet run**. Branch assignments are currently stored in `localStorage` keyed by `user_branches_<centerId>`.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| user_id | uuid NOT NULL | References auth.users |
+| center_id | uuid NOT NULL | References training_centers |
+| branch_id | uuid NOT NULL | References branches |
+| created_at | timestamptz | |
+| — | UNIQUE | `(user_id, branch_id)` |
+
+**Semantics:** If a user has zero rows here, they have access to all branches (no restriction). Enforcement in the frontend batch queries is not yet implemented — data model is ready.
+
+---
+
+### `pending_invites`
+Portal user invitations generated by admins.
+
+> **Migration status:** Same migration as `user_branches` — **not yet run**. Invites are currently stored in `localStorage` keyed by `invites_<centerId>`.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| center_id | uuid NOT NULL | References training_centers |
+| email | text NOT NULL | Invitee's email |
+| role | app_role NOT NULL | Role to grant on registration |
+| token | text NOT NULL UNIQUE | Random token for the invite link |
+| status | text | `pending` \| `accepted` \| `revoked` |
+| created_by | uuid | References auth.users |
+| created_at | timestamptz | |
+| expires_at | timestamptz | Default 7 days from creation |
+
+**Invite link format:** `/auth?invite=<token>` — the registration-via-token flow is not yet built. Admins copy the link manually for now.
 
 ---
 
@@ -413,6 +510,10 @@ npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 7. `20260604064110_...` — course_materials table
 8. `20260614174008_...` — courses: add category, tags columns; trade_id made nullable
 9. `20260617063346_...` — REVOKE on set_course_code function (cleanup)
+10. `20260702120000_rejected_status_enrollment_comments_payments.sql` — adds `rejected` to pipeline_status enum; creates enrollment_comments table; adds fee_collection_method enum + fee_collection column to batches ✅ **applied**
+11. `20260702130000_batches_extended_fields.sql` — adds description, description_bn, requirements_text, eligibility_*, duration_*, price, tags, application_deadline columns to batches ✅ **applied**
+12. `20260705120000_user_branches_pending_invites.sql` — creates user_branches and pending_invites tables ⚠️ **not yet run** (data in localStorage)
+13. `20260705140000_batch_instructors.sql` — creates batch_instructors junction table ⚠️ **not yet run** (as any casts in frontend until applied)
 
 ---
 
