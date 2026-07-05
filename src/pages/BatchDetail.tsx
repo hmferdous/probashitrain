@@ -792,11 +792,22 @@ function StudentDetailDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{enr.students.full_name}</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            {enr.students.phone || ""}{enr.students.phone && enr.students.email ? " · " : ""}{enr.students.email || ""}
-            {enr.students.nid ? ` · NID: ${enr.students.nid}` : ""}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <DialogTitle>{enr.students.full_name}</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {enr.students.phone || ""}{enr.students.phone && enr.students.email ? " · " : ""}{enr.students.email || ""}
+                {enr.students.nid ? ` · NID: ${enr.students.nid}` : ""}
+              </p>
+            </div>
+            <Link
+              to={`/app/students/${enr.students.id}`}
+              className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border rounded-md px-2 py-1 hover:bg-muted transition-colors"
+              onClick={onClose}
+            >
+              <FileText className="h-3.5 w-3.5" /> Full profile
+            </Link>
+          </div>
         </DialogHeader>
 
         {/* Tab switcher */}
