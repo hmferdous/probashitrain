@@ -54,8 +54,13 @@ const navGroups: { label: string; items: { to: string; label: string; icon: any;
   },
 ];
 
+const ROLE_LABEL: Record<string, string> = {
+  center_admin: "Admin",
+  instructor: "Instructor",
+};
+
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { profile, center, signOut } = useAuth();
+  const { profile, center, roles, signOut } = useAuth();
   const { plan } = usePlan();
   const navigate = useNavigate();
 
@@ -128,7 +133,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto flex flex-col">
+        <header className="sticky top-0 z-10 flex items-center justify-end gap-3 px-6 py-3 border-b border-border bg-background/95 backdrop-blur-sm">
+          <div className="text-right">
+            <div className="text-sm font-medium leading-none">{profile?.full_name}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {roles?.[0] ? (ROLE_LABEL[roles[0]] ?? roles[0]) : ""}
+            </div>
+          </div>
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-xs font-semibold text-primary">
+              {profile?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+            </span>
+          </div>
+        </header>
+        <div className="flex-1">{children}</div>
+      </main>
     </div>
   );
 }
