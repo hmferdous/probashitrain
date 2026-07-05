@@ -49,8 +49,8 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 const STATUS_CONFIG: Record<PipelineStatus, { label: string; color: string }> = {
   applied:          { label: "Applied",         color: "bg-info/15 text-info border-info/30" },
   shortlisted:      { label: "Shortlisted",     color: "bg-warning/15 text-warning border-warning/30" },
-  training_started: { label: "Training Started",color: "bg-primary/15 text-primary border-primary/30" },
-  ongoing:          { label: "Ongoing",         color: "bg-accent/20 text-accent-foreground border-accent/30" },
+  training_started: { label: "In Training",     color: "bg-primary/15 text-primary border-primary/30" },
+  ongoing:          { label: "In Training",     color: "bg-primary/15 text-primary border-primary/30" },
   completed:        { label: "Completed",       color: "bg-success/15 text-success border-success/30" },
   certified:        { label: "Certified",       color: "bg-amber-100 text-amber-800 border-amber-300" },
   rejected:         { label: "Rejected",        color: "bg-destructive/15 text-destructive border-destructive/30" },
@@ -445,7 +445,7 @@ export default function BatchDetail() {
           <TabsContent value="pipeline" className="mt-6 space-y-4">
             {/* Journey stepper */}
             <div className="flex items-center gap-0 overflow-x-auto pb-1">
-              {(["applied","shortlisted","training_started","ongoing","completed","certified"] as PipelineStatus[]).map((s, i, arr) => {
+              {(["applied","shortlisted","training_started","completed","certified"] as PipelineStatus[]).map((s, i, arr) => {
                 const count = statusCounts[s] ?? 0;
                 const cfg = STATUS_CONFIG[s];
                 return (
@@ -465,18 +465,6 @@ export default function BatchDetail() {
                 </div>
               ) : null}
             </div>
-            {/* Status count pills */}
-            {enrollments.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(STATUS_CONFIG) as PipelineStatus[]).map((s) =>
-                  statusCounts[s] ? (
-                    <span key={s} className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${STATUS_CONFIG[s].color}`}>
-                      {STATUS_CONFIG[s].label} · {statusCounts[s]}
-                    </span>
-                  ) : null
-                )}
-              </div>
-            )}
 
             {enrollments.length === 0 ? (
               <Card className="p-12 text-center text-muted-foreground">No students enrolled yet.</Card>
@@ -660,12 +648,7 @@ function PipelineActions({
           </Button>
         </>
       )}
-      {s === "training_started" && (
-        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onMove(enr, "ongoing")}>
-          <ChevronRight className="h-3 w-3 mr-1" /> Mark ongoing
-        </Button>
-      )}
-      {s === "ongoing" && (
+      {(s === "training_started" || s === "ongoing") && (
         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onMove(enr, "completed")}>
           <CheckCircle2 className="h-3 w-3 mr-1 text-success" /> Mark complete
         </Button>
