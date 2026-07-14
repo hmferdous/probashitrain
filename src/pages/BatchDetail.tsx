@@ -970,6 +970,9 @@ const ATT_OPTIONS: { value: AttStatus; label: string; active: string; }[] = [
 function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[]; onChange: () => void }) {
   const [date, setDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [rows, setRows] = useState<Record<string, AttStatus | undefined>>({});
+  const [savedRows, setSavedRows] = useState<Record<string, AttStatus | undefined>>({});
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (enrollments.length === 0) return;
@@ -979,70 +982,154 @@ function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[];
       const map: Record<string, AttStatus | undefined> = {};
       (data ?? []).forEach((a: any) => { map[a.enrollment_id] = a.status; });
       setRows(map);
+      setSavedRows(map);
     })();
   }, [date, enrollments]);
 
-  const save = async (enrId: string, status: AttStatus) => {
-    setRows((m) => ({ ...m, [enrId]: status }));
-    const { error } = await supabase.from("attendance").upsert(
-      { enrollment_id: enrId, session_date: date, status } as any,
-      { onConflict: "enrollment_id,session_date" }
-    );
-    if (error) toast.error(error.message);
-    else onChange();
+  const mark = (enrId: string, status: AttStatus) => {
+    setRows((m) => ({ ...m, [enrId]: m[enrId] === status ? undefined : status }));
+  };
+
+  const isDirty = enrollments.some((e) => rows[e.id] !== savedRows[e.id]);
+
+  const counts = enrollments.reduce(
+    (acc, e) => {
+      const s = rows[e.id];
+      if (s) acc[s]++;
+      else acc.unmarked++;
+      return acc;
+    },
+    { present: 0, absent: 0, late: 0, unmarked: 0 }
+  );
+
+  const confirmSave = async () => {
+    setSaving(true);
+    const upserts = enrollments
+      .filter((e) => rows[e.id] !== undefined)
+      .map((e) => ({ enrollment_id: e.id, session_date: date, status: rows[e.id] } as any));
+    const deletes = enrollments.filter((e) => rows[e.id] === undefined && savedRows[e.id] !== undefined);
+    let err: string | null = null;
+    if (upserts.length) {
+      const { error } = await supabase.from("attendance").upsert(upserts, { onConflict: "enrollment_id,session_date" });
+      if (error) err = error.message;
+    }
+    for (const e of deletes) {
+      const { error } = await supabase.from("attendance").delete().eq("enrollment_id", e.id).eq("session_date", date);
+      if (error) err = error.message;
+    }
+    setSaving(false);
+    if (err) { toast.error(err); return; }
+    setSavedRows({ ...rows });
+    setShowConfirm(false);
+    toast.success("Attendance saved");
+    onChange();
   };
 
   if (enrollments.length === 0) return <Card className="p-8 text-center text-muted-foreground">No active students enrolled yet.</Card>;
 
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-3 mb-5">
-        <ClipboardCheck className="h-5 w-5 text-primary" />
-        <Label>Date</Label>
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
-        <span className="text-xs text-muted-foreground ml-1">{enrollments.length} student{enrollments.length !== 1 ? "s" : ""}</span>
-      </div>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr className="text-left">
-              <th className="px-4 py-2.5 font-medium">#</th>
-              <th className="px-4 py-2.5 font-medium">Student</th>
-              <th className="px-4 py-2.5 font-medium">Present</th>
-              <th className="px-4 py-2.5 font-medium">Absent</th>
-              <th className="px-4 py-2.5 font-medium">Late</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {enrollments.map((e, idx) => {
-              const current = rows[e.id];
-              return (
-                <tr key={e.id} className="align-middle hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
-                  <td className="px-4 py-3 font-medium">{e.students.full_name}</td>
-                  {ATT_OPTIONS.map((opt) => {
-                    const checked = current === opt.value;
-                    return (
-                      <td key={opt.value} className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => save(e.id, opt.value)}
-                          className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                            checked ? opt.active + " border-current" : "border-border hover:border-muted-foreground"
-                          }`}
-                          title={opt.label}
-                        >
-                          {checked && <span className="h-3 w-3 rounded-full bg-current" />}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <>
+      <Card className="p-5">
+        {/* Date header — highlighted */}
+        <div className="flex items-start gap-4 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 mb-5">
+          <ClipboardCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Session date</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Select the date you are recording attendance for</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); }} className="w-auto" />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{enrollments.length} student{enrollments.length !== 1 ? "s" : ""}</span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr className="text-left">
+                <th className="px-4 py-2.5 font-medium w-12">#</th>
+                <th className="px-4 py-2.5 font-medium">Student</th>
+                <th className="px-4 py-2.5 font-medium">Present</th>
+                <th className="px-4 py-2.5 font-medium">Absent</th>
+                <th className="px-4 py-2.5 font-medium">Late</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {enrollments.map((e, idx) => {
+                const current = rows[e.id];
+                const changed = current !== savedRows[e.id];
+                return (
+                  <tr key={e.id} className={`align-middle transition-colors ${changed ? "bg-warning/5" : "hover:bg-muted/30"}`}>
+                    <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
+                    <td className="px-4 py-3 font-medium">{e.students.full_name}</td>
+                    {ATT_OPTIONS.map((opt) => {
+                      const checked = current === opt.value;
+                      return (
+                        <td key={opt.value} className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => mark(e.id, opt.value)}
+                            className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${
+                              checked ? opt.active + " border-current" : "border-border hover:border-muted-foreground"
+                            }`}
+                            title={checked ? `Click to unmark ${opt.label}` : opt.label}
+                          >
+                            {checked && <span className="h-3 w-3 rounded-full bg-current" />}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <span className="text-success font-medium">{counts.present} present</span>
+            <span className="text-destructive font-medium">{counts.absent} absent</span>
+            <span className="text-warning font-medium">{counts.late} late</span>
+            {counts.unmarked > 0 && <span>{counts.unmarked} unmarked</span>}
+          </div>
+          <Button onClick={() => setShowConfirm(true)} disabled={!isDirty} size="sm">
+            <CheckCircle2 className="h-4 w-4 mr-1.5" /> Save attendance
+          </Button>
+        </div>
+      </Card>
+
+      {/* Confirm modal */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Save attendance — {format(new Date(date + "T00:00:00"), "MMM d, yyyy")}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Review before saving:</p>
+            <div className="rounded-lg border divide-y overflow-hidden">
+              {[
+                { label: "Present", count: counts.present, color: "text-success" },
+                { label: "Absent",  count: counts.absent,  color: "text-destructive" },
+                { label: "Late",    count: counts.late,    color: "text-warning" },
+                { label: "Unmarked", count: counts.unmarked, color: "text-muted-foreground" },
+              ].map(({ label, count, color }) => (
+                <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm">{label}</span>
+                  <span className={`text-sm font-semibold ${color}`}>{count}</span>
+                </div>
+              ))}
+            </div>
+            {counts.unmarked > 0 && (
+              <p className="text-xs text-muted-foreground">Unmarked students will have no attendance record for this date.</p>
+            )}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowConfirm(false)}>Cancel</Button>
+            <Button className="flex-1" onClick={confirmSave} disabled={saving}>
+              {saving ? "Saving…" : "Confirm & save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
