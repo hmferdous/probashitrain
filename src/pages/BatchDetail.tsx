@@ -165,6 +165,7 @@ export default function BatchDetail() {
       phone,
       email: String(fd.get("email") || "").trim() || null,
       nid: String(fd.get("nid") || "").trim() || null,
+      guardian_number: String(fd.get("guardian_number") || "").trim() || null,
     }).select().single();
     if (error || !s) { toast.error(error?.message ?? "Failed"); return; }
     const { error: e2 } = await supabase.from("enrollments").insert({
@@ -451,6 +452,7 @@ export default function BatchDetail() {
                   <form onSubmit={createStudentAndEnroll} className="space-y-3">
                     <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
                     <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
+                    <div><Label>Guardian number</Label><Input name="guardian_number" maxLength={30} /></div>
                     <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
                     <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
                     <Button type="submit" className="w-full">Admit student</Button>

@@ -15,7 +15,7 @@ import {
 import { Plus, Users, Mail, Phone, ChevronRight, Lock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; }
+interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; guardian_number: string | null; }
 
 export default function Students() {
   const { center } = useAuth();
@@ -57,6 +57,7 @@ export default function Students() {
       email: String(fd.get("email") || "").trim() || null,
       nid: String(fd.get("nid") || "").trim() || null,
       address: String(fd.get("address") || "").trim() || null,
+      guardian_number: String(fd.get("guardian_number") || "").trim() || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Student added");
@@ -95,6 +96,7 @@ export default function Students() {
                       <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
                     </div>
                     <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
+                    <div><Label>Guardian number</Label><Input name="guardian_number" maxLength={30} /></div>
                     <div><Label>Address</Label><Input name="address" maxLength={300} /></div>
                     <Button type="submit" className="w-full">Add student</Button>
                   </form>
