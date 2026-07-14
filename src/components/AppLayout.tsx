@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, BookOpen, CalendarDays, Users, ClipboardCheck,
-  Award, Video, LogOut, GraduationCap, Inbox, Wallet, Sparkles, Building2, Layers, UserCog
+  Award, Video, LogOut, GraduationCap, Inbox, Wallet, Sparkles, Building2, UserCog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/lib/plan";
@@ -25,7 +25,6 @@ const navGroups: { label: string; items: { to: string; label: string; icon: any;
   {
     label: "Academics",
     items: [
-      { to: "/app/trades", label: "Trades", icon: Layers },
       { to: "/app/courses", label: "Courses", icon: BookOpen },
       { to: "/app/batches", label: "Batches", icon: CalendarDays },
     ],

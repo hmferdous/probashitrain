@@ -385,7 +385,6 @@ export type Database = {
           requirements_text: string | null
           tags: string[]
           title: string
-          trade_id: string | null
         }
         Insert: {
           category?: string | null
@@ -411,7 +410,6 @@ export type Database = {
           requirements_text?: string | null
           tags?: string[]
           title: string
-          trade_id?: string | null
         }
         Update: {
           category?: string | null
@@ -437,7 +435,6 @@ export type Database = {
           requirements_text?: string | null
           tags?: string[]
           title?: string
-          trade_id?: string | null
         }
         Relationships: [
           {
@@ -445,13 +442,6 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "training_centers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "courses_trade_id_fkey"
-            columns: ["trade_id"]
-            isOneToOne: false
-            referencedRelation: "trades"
             referencedColumns: ["id"]
           },
         ]
@@ -734,41 +724,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "students_center_id_fkey"
-            columns: ["center_id"]
-            isOneToOne: false
-            referencedRelation: "training_centers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      trades: {
-        Row: {
-          center_id: string
-          code: string | null
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          center_id: string
-          code?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          center_id?: string
-          code?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trades_center_id_fkey"
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "training_centers"

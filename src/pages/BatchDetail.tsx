@@ -91,7 +91,7 @@ export default function BatchDetail() {
     if (!id) return;
     const { data: b } = await supabase
       .from("batches")
-      .select("*, courses(title, duration_hours, trades(name))")
+      .select("*, courses(title, duration_hours)")
       .eq("id", id).maybeSingle();
     setBatch(b);
     // Load assigned instructors
@@ -152,10 +152,17 @@ export default function BatchDetail() {
       return;
     }
     const fd = new FormData(e.currentTarget);
+    const phone = String(fd.get("phone") || "").trim() || null;
+    if (phone) {
+      const { count } = await supabase.from("students")
+        .select("id", { count: "exact", head: true })
+        .eq("center_id", batch.center_id).eq("phone", phone);
+      if (count && count > 0) { toast.error("A student with this phone number already exists in your center."); return; }
+    }
     const { data: s, error } = await supabase.from("students").insert({
       center_id: batch.center_id,
       full_name: String(fd.get("full_name") || "").trim(),
-      phone: String(fd.get("phone") || "").trim() || null,
+      phone,
       email: String(fd.get("email") || "").trim() || null,
       nid: String(fd.get("nid") || "").trim() || null,
     }).select().single();
@@ -273,7 +280,7 @@ export default function BatchDetail() {
         )}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <Badge variant="secondary" className="mb-2">{batch.courses?.trades?.name} · {batch.courses?.title}</Badge>
+            <Badge variant="secondary" className="mb-2">{batch.courses?.title}</Badge>
             <h1 className="text-3xl font-bold">{batch.name}</h1>
             <p className="text-muted-foreground mt-1">
               {format(new Date(batch.start_date), "MMM d")} → {format(new Date(batch.end_date), "MMM d, yyyy")} ·

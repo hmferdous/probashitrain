@@ -26,15 +26,15 @@ export const SEO_PAGES: SeoPage[] = [
     sections: [
       {
         heading: "Why vocational training matters for Bangladesh",
-        body: "Skilled migrant workers earn 2–3x more than unskilled ones overseas. With over 3 crore registered aspirant migrants on the OEP platform, the demand for high-quality vocational training in trades like electrical work, motor driving, garments, welding, plumbing, and computer operation is at an all-time high.",
+        body: "Skilled migrant workers earn 2–3x more than unskilled ones overseas. With over 3 crore registered aspirant migrants on the OEP platform, the demand for high-quality vocational training in areas like electrical work, motor driving, garments, welding, plumbing, and computer operation is at an all-time high.",
       },
       {
         heading: "What training centers can do on Probashi Skills",
-        body: "Organize your catalog as Trades → Courses → Batches. Publish batches to the Ami Probashi mobile app. Receive applications, shortlist students, admit them manually for cash payments, track attendance, run live classes from inside the portal, grade performance and issue downloadable certificates.",
+        body: "Create courses, schedule batches, and publish them to the Ami Probashi mobile app. Receive applications, shortlist students, admit them manually for cash payments, track attendance, run live classes from inside the portal, grade performance and issue downloadable certificates.",
       },
       {
         heading: "BMET-aligned workflow",
-        body: "The pipeline mirrors how BMET-registered TTCs (Technical Training Centers) operate: Applied → Shortlisted → Training Started → Ongoing → Completed → Certificate. Payment tracking supports both upfront app payments and manual cash with auto-generated invoices.",
+        body: "The pipeline mirrors how BMET-registered TTCs (Technical Training Centers) operate: Applied → Shortlisted → Training Started → Completed → Certificate. Payment tracking supports both upfront app payments and manual cash with auto-generated invoices.",
       },
     ],
     faqs: [
@@ -47,8 +47,8 @@ export const SEO_PAGES: SeoPage[] = [
         a: "Yes. Batches you publish are listed on Ami Probashi. Aspirant migrants apply from the app and you receive their profiles in real time.",
       },
       {
-        q: "What trades are most popular in Bangladesh?",
-        a: "Computer operation, motor driving, electrical work, garments, welding, refrigeration & AC, and house-keeping are the most in-demand trades for both domestic and overseas employment.",
+        q: "What courses are most popular for migrant workers in Bangladesh?",
+        a: "Computer operation, motor driving, electrical work, garments, welding, refrigeration & AC, and house-keeping are the most in-demand skills for both domestic and overseas employment.",
       },
     ],
   },
@@ -100,7 +100,7 @@ export const SEO_PAGES: SeoPage[] = [
     sections: [
       {
         heading: "How the integration works",
-        body: "Create a batch in Probashi Skills with seats, fees, trade, schedule and location. It appears as a listing on the Ami Probashi app. Workers apply with a single tap; their profile, NID, education and passport details flow back to your dashboard.",
+        body: "Create a batch in Probashi Skills with seats, fees, schedule and location. It appears as a listing on the Ami Probashi app. Workers apply with a single tap; their profile, NID, education and passport details flow back to your dashboard.",
       },
       {
         heading: "Shortlist, admit, and track the entire pipeline",
@@ -127,15 +127,15 @@ export const SEO_PAGES: SeoPage[] = [
     lang: "en",
     title: "Skill Development Training Platform for Bangladesh | Probashi Skills",
     description:
-      "Bangladesh skill development simplified. Manage trades, courses, batches, attendance, live classes and certificates for your training center.",
+      "Bangladesh skill development simplified. Manage courses, batches, attendance, live classes and certificates for your training center.",
     keyword: "skill development Bangladesh",
     h1: "Skill Development Training, Digitized",
     intro:
       "Skill development is at the heart of Bangladesh's plan to move from a low-wage labour exporter to a skilled-labour exporter. Probashi Skills equips your center to scale that mission — without spreadsheets, paper attendance, or lost certificates.",
     sections: [
       {
-        heading: "Trades, courses, batches — organized",
-        body: "A three-level hierarchy that mirrors how training is actually delivered. Add a trade (e.g. Electrical), nest courses under it (House Wiring, Industrial Wiring), then publish dated batches with seats and fees.",
+        heading: "Courses and batches — organized",
+        body: "Create courses with categories and tags, then publish dated batches with seats and fees. One course can run as many batches — each with its own dates, instructors, and capacity.",
       },
       {
         heading: "Attendance & performance grading",
@@ -169,8 +169,8 @@ export const SEO_PAGES: SeoPage[] = [
       "Whether you run a single TTC in Dhaka or a network across all 64 districts, Probashi Skills gives your team one dashboard to manage everything — from the first application to the final printed certificate.",
     sections: [
       {
-        heading: "Multi-trade catalog management",
-        body: "Computer operation, motor driving, electrical, plumbing, welding, RAC, garments, mason, house-keeping — model your full catalog and re-use it across batches.",
+        heading: "Multi-course catalog management",
+        body: "Computer operation, motor driving, electrical, plumbing, welding, RAC, garments, mason, house-keeping — create courses for each skill area and run multiple batches under each one.",
       },
       {
         heading: "Attendance that holds up to audit",
@@ -232,15 +232,15 @@ export const SEO_PAGES: SeoPage[] = [
     lang: "bn",
     title: "দক্ষতা উন্নয়ন প্রশিক্ষণ ব্যবস্থাপনা | Probashi Skills",
     description:
-      "বাংলাদেশের কারিগরি ও দক্ষতা উন্নয়ন প্রশিক্ষণ কেন্দ্রের জন্য আধুনিক সফটওয়্যার। ট্রেড, কোর্স, ব্যাচ, হাজিরা ও সার্টিফিকেট — সবকিছু এক জায়গায়।",
+      "বাংলাদেশের কারিগরি ও দক্ষতা উন্নয়ন প্রশিক্ষণ কেন্দ্রের জন্য আধুনিক সফটওয়্যার। কোর্স, ব্যাচ, হাজিরা ও সার্টিফিকেট — সবকিছু এক জায়গায়।",
     keyword: "দক্ষতা উন্নয়ন",
     h1: "দক্ষতা উন্নয়নের জন্য আধুনিক প্ল্যাটফর্ম",
     intro:
       "বাংলাদেশের দক্ষতা উন্নয়ন খাতকে কাগজ থেকে ডিজিটালে নিয়ে যান। ইলেকট্রিক্যাল, ড্রাইভিং, ওয়েল্ডিং, RAC, গার্মেন্টস — প্রতিটি ট্রেডের ব্যাচ পরিচালনা সহজ করুন।",
     sections: [
       {
-        heading: "ট্রেড → কোর্স → ব্যাচ",
-        body: "একটি ট্রেডের অধীনে একাধিক কোর্স, প্রতিটি কোর্সের অধীনে একাধিক ব্যাচ — ঠিক যেভাবে আপনি বাস্তবে প্রশিক্ষণ পরিচালনা করেন।",
+        heading: "কোর্স → ব্যাচ",
+        body: "প্রতিটি কোর্সের অধীনে একাধিক ব্যাচ — ঠিক যেভাবে আপনি বাস্তবে প্রশিক্ষণ পরিচালনা করেন।",
       },
       {
         heading: "হাজিরা ও মূল্যায়ন",

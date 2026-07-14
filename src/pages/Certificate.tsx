@@ -26,7 +26,7 @@ export default function Certificate() {
     if (!id) return;
     supabase
       .from("enrollments")
-      .select("*, students(*), batches(*, courses(*, trades(name)))")
+      .select("*, students(*), batches(*, courses(*))")
       .eq("id", id)
       .maybeSingle()
       .then(({ data }) => setEnr(data));
@@ -127,7 +127,7 @@ function PresetCertificate({ enr, center, tpl }: { enr: any; center: any; tpl: R
       </p>
       <p className="text-xl font-semibold mt-3">{enr.batches?.courses?.title}</p>
       <p className="text-sm text-muted-foreground">
-        ({enr.batches?.courses?.trades?.name} · {enr.batches?.courses?.duration_hours} hours)
+        ({enr.batches?.courses?.duration_hours} hours)
       </p>
       {enr.performance_score != null && (
         <p className="mt-4 text-sm">Performance score: <span className={cn("font-semibold", accentText)}>{enr.performance_score} / 100</span></p>
