@@ -16,7 +16,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X } from "lucide-react";
+import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -95,6 +95,8 @@ export default function Batches() {
   const [tagInput, setTagInput] = useState("");
   const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [feeCollection, setFeeCollection] = useState<FeeCollection>("manual");
+  const [showCourseDetails, setShowCourseDetails] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   const load = async () => {
     if (!center) return;
@@ -144,10 +146,12 @@ export default function Batches() {
     setEligGender(""); setEligEducation(""); setEligMinAge(""); setEligMaxAge("");
     setDurationValue(""); setDurationUnit("hours"); setPrice("");
     setTags([]); setTagInput(""); setDocRequirements([]); setFeeCollection("manual");
+    setShowCourseDetails(false); setShowMoreOptions(false);
   };
 
   const applyCourseDefaults = async (courseId: string) => {
     setSelectedCourse(courseId);
+    setShowCourseDetails(true);
     const course = courses.find((c) => c.id === courseId);
     if (!course) return;
     setDescription(course.description ?? "");
@@ -206,11 +210,20 @@ export default function Batches() {
       }
     }
     const fd = new FormData(e.currentTarget);
+    const batchName = String(fd.get("name") || "").trim();
+    if (!batchName) { toast.error("Batch name is required"); return; }
+    const { count: nameCount } = await supabase.from("batches")
+      .select("id", { count: "exact", head: true })
+      .eq("center_id", center.id).eq("name", batchName);
+    if (nameCount && nameCount > 0) {
+      toast.error("A batch with this name already exists in your center.");
+      return;
+    }
     const totalCapacity = selectedBranchIds.reduce((s, id) => s + branchCaps[id], 0);
     const { data: created, error } = await supabase.from("batches").insert({
       center_id: center.id,
       course_id: selectedCourse,
-      name: String(fd.get("name") || "").trim(),
+      name: batchName,
       start_date: String(fd.get("start_date")),
       end_date: String(fd.get("end_date")),
       capacity: totalCapacity,
@@ -275,6 +288,7 @@ export default function Batches() {
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
+                  {/* ── Required fields ── */}
                   <div className="space-y-2">
                     <Label>Course *</Label>
                     <Select value={selectedCourse} onValueChange={applyCourseDefaults}>
@@ -283,184 +297,35 @@ export default function Batches() {
                         {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {selectedCourse && (
-                      <p className="text-xs text-muted-foreground">
-                        Description, requirements, duration, fee and document requirements below are copied from the
-                        course — edit freely, the course stays unchanged.
-                      </p>
-                    )}
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="name">Batch name *</Label>
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="start_date">Start *</Label>
+                      <Label htmlFor="start_date">Start date *</Label>
                       <Input id="start_date" name="start_date" type="date" required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="end_date">End *</Label>
+                      <Label htmlFor="end_date">End date *</Label>
                       <Input id="end_date" name="end_date" type="date" required />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="tags">Tags (e.g. online, in-person)</Label>
-                    <div className="flex flex-wrap gap-1.5 border rounded-md px-2 py-1.5 min-h-[40px] items-center">
-                      {tags.map((t) => (
-                        <Badge key={t} variant="secondary" className="gap-1">
-                          {t}
-                          <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))} className="hover:text-destructive">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      <input
-                        id="tags"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={onTagKey}
-                        onBlur={() => tagInput && addTag(tagInput)}
-                        placeholder={tags.length ? "" : "Press Enter to add"}
-                        className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description (English)</Label>
-                    <Textarea id="description" rows={3} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description_bn">Description (Bangla)</Label>
-                    <Textarea id="description_bn" rows={3} maxLength={1000} value={descriptionBn} onChange={(e) => setDescriptionBn(e.target.value)} />
-                  </div>
-
-                  <div className="space-y-3 border rounded-md p-3">
-                    <Label>Requirements</Label>
-                    <p className="text-xs text-muted-foreground">Used to gate who can apply on the app. Leave any field unset for no restriction.</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Gender</Label>
-                        <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unset">No restriction</SelectItem>
-                            <SelectItem value="any">Any</SelectItem>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Education</Label>
-                        <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unset">No restriction</SelectItem>
-                            {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
-                              <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Min age</Label>
-                        <Input type="number" min={0} value={eligMinAge} onChange={(e) => setEligMinAge(e.target.value)} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Max age</Label>
-                        <Input type="number" min={0} value={eligMaxAge} onChange={(e) => setEligMaxAge(e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground font-normal">Additional notes (optional, shown to applicants)</Label>
-                      <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Duration</Label>
-                      <div className="flex gap-2">
-                        <Input type="number" min={1} className="w-20" value={durationValue} onChange={(e) => setDurationValue(e.target.value)} />
-                        <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
-                          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="hours">Hours</SelectItem>
-                            <SelectItem value="days">Days</SelectItem>
-                            <SelectItem value="weeks">Weeks</SelectItem>
-                            <SelectItem value="months">Months</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Course fee (BDT)</Label>
-                      <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="application_deadline">Application deadline</Label>
-                      <Input id="application_deadline" name="application_deadline" type="date" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Fee collection</Label>
-                      <Select value={feeCollection} onValueChange={(v) => setFeeCollection(v as FeeCollection)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manual">Manual (center collects)</SelectItem>
-                          <SelectItem value="ami_probashi">Ami Probashi collects</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Document requirements</Label>
-                    {docRequirements.length > 0 && (
-                      <ul className="space-y-1.5">
-                        {docRequirements.map((d, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
-                              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
-                                  <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                              <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
-                              Mandatory
-                            </label>
-                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
-                    </Button>
-                  </div>
-
+                  {/* ── Branches & capacity (required) ── */}
                   <div className="space-y-2">
                     <Label>Branches & capacity *</Label>
                     {branches.length === 0 ? (
                       <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
                         No branches yet.{" "}
-                        <Link to="/app/branches-management" className="text-primary underline">
-                          Add a branch
-                        </Link>{" "}
+                        <Link to="/app/branches-management" className="text-primary underline">Add a branch</Link>{" "}
                         before creating a session.
                       </div>
                     ) : (
-                      <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
+                      <div className="border rounded-md divide-y max-h-52 overflow-y-auto">
                         {branches.map((br) => {
                           const checked = br.id in branchCaps;
                           return (
@@ -473,18 +338,13 @@ export default function Batches() {
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{br.name_en}</div>
-                                <div className="text-xs text-muted-foreground truncate">{br.name_bn}</div>
+                                {br.name_bn && <div className="text-xs text-muted-foreground truncate">{br.name_bn}</div>}
                               </div>
                               <Input
-                                type="number"
-                                min={1}
-                                className="w-24"
-                                placeholder="Capacity"
+                                type="number" min={1} className="w-24" placeholder="Capacity"
                                 disabled={!checked}
                                 value={checked ? branchCaps[br.id] : ""}
-                                onChange={(e) =>
-                                  setBranchCaps((p) => ({ ...p, [br.id]: Number(e.target.value) || 0 }))
-                                }
+                                onChange={(e) => setBranchCaps((p) => ({ ...p, [br.id]: Number(e.target.value) || 0 }))}
                               />
                             </div>
                           );
@@ -492,46 +352,223 @@ export default function Batches() {
                       </div>
                     )}
                   </div>
-                  {/* Instructor multiselect */}
-                  <div className="space-y-2">
-                    <Label>
-                      Instructors <span className="text-muted-foreground text-xs">(optional — leave blank for all to see)</span>
-                    </Label>
-                    {instructors.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No instructors added yet. Invite instructors from User Management.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {instructors.map((inst) => {
-                          const selected = selectedInstructors.includes(inst.id);
-                          return (
-                            <button
-                              key={inst.id}
-                              type="button"
-                              onClick={() => setSelectedInstructors((prev) =>
-                                selected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
-                              )}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                                selected
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border hover:bg-muted/50 text-muted-foreground"
-                              }`}
-                            >
-                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
-                                {inst.full_name.charAt(0).toUpperCase()}
-                              </span>
-                              {inst.full_name}
-                            </button>
-                          );
-                        })}
+
+                  {/* ── Collapsible: Course details (pre-filled) ── */}
+                  <div className="border rounded-md overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowCourseDetails((v) => !v)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+                    >
+                      <span>
+                        Course details
+                        {selectedCourse && <span className="ml-2 text-xs font-normal text-muted-foreground">(pre-filled from course — editable)</span>}
+                      </span>
+                      {showCourseDetails ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                    {showCourseDetails && (
+                      <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="description">Description (English)</Label>
+                          <Textarea id="description" rows={3} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="description_bn">Description (Bangla)</Label>
+                          <Textarea id="description_bn" rows={3} maxLength={1000} value={descriptionBn} onChange={(e) => setDescriptionBn(e.target.value)} />
+                        </div>
+
+                        <div className="space-y-3 border rounded-md p-3 bg-muted/20">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm">Eligibility requirements</Label>
+                            <span className="text-xs text-muted-foreground">Leave unset for no restriction</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-normal text-muted-foreground">Gender</Label>
+                              <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unset">No restriction</SelectItem>
+                                  <SelectItem value="any">Any</SelectItem>
+                                  <SelectItem value="male">Male</SelectItem>
+                                  <SelectItem value="female">Female</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-normal text-muted-foreground">Min education</Label>
+                              <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unset">No restriction</SelectItem>
+                                  {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
+                                    <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-normal text-muted-foreground">Min age</Label>
+                              <Input type="number" min={0} value={eligMinAge} onChange={(e) => setEligMinAge(e.target.value)} />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-normal text-muted-foreground">Max age</Label>
+                              <Input type="number" min={0} value={eligMaxAge} onChange={(e) => setEligMaxAge(e.target.value)} />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-normal text-muted-foreground">Additional notes (shown to applicants)</Label>
+                            <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Duration</Label>
+                            <div className="flex gap-2">
+                              <Input type="number" min={1} className="w-20" value={durationValue} onChange={(e) => setDurationValue(e.target.value)} />
+                              <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
+                                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="hours">Hours</SelectItem>
+                                  <SelectItem value="days">Days</SelectItem>
+                                  <SelectItem value="weeks">Weeks</SelectItem>
+                                  <SelectItem value="months">Months</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Course fee (BDT)</Label>
+                            <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {/* ── Collapsible: More options ── */}
+                  <div className="border rounded-md overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreOptions((v) => !v)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+                    >
+                      <span>More options <span className="text-xs font-normal text-muted-foreground">(tags, deadline, docs, instructors)</span></span>
+                      {showMoreOptions ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                    {showMoreOptions && (
+                      <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                        <div className="space-y-2">
+                          <Label>Tags</Label>
+                          <div className="flex flex-wrap gap-1.5 border rounded-md px-2 py-1.5 min-h-[40px] items-center">
+                            {tags.map((t) => (
+                              <Badge key={t} variant="secondary" className="gap-1">
+                                {t}
+                                <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))} className="hover:text-destructive">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                            <input
+                              value={tagInput}
+                              onChange={(e) => setTagInput(e.target.value)}
+                              onKeyDown={onTagKey}
+                              onBlur={() => tagInput && addTag(tagInput)}
+                              placeholder={tags.length ? "" : "e.g. online, evening — press Enter to add"}
+                              className="flex-1 min-w-[160px] bg-transparent outline-none text-sm py-1"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="application_deadline">Application deadline</Label>
+                            <Input id="application_deadline" name="application_deadline" type="date" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Fee collection</Label>
+                            <Select value={feeCollection} onValueChange={(v) => setFeeCollection(v as FeeCollection)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="manual">Manual (center collects)</SelectItem>
+                                <SelectItem value="ami_probashi">Ami Probashi collects</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Document requirements</Label>
+                          {docRequirements.length > 0 && (
+                            <ul className="space-y-1.5">
+                              {docRequirements.map((d, i) => (
+                                <li key={i} className="flex items-center gap-2">
+                                  <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
+                                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
+                                        <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                                    <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
+                                    Mandatory
+                                  </label>
+                                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Instructors <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                          {instructors.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No instructors added yet. Invite instructors from User Management.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {instructors.map((inst) => {
+                                const selected = selectedInstructors.includes(inst.id);
+                                return (
+                                  <button
+                                    key={inst.id}
+                                    type="button"
+                                    onClick={() => setSelectedInstructors((prev) =>
+                                      selected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
+                                    )}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                                      selected
+                                        ? "border-primary bg-primary/10 text-primary"
+                                        : "border-border hover:bg-muted/50 text-muted-foreground"
+                                    }`}
+                                  >
+                                    <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
+                                      {inst.full_name.charAt(0).toUpperCase()}
+                                    </span>
+                                    {inst.full_name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <Button
                     type="submit"
                     className="w-full"
                     disabled={branches.length === 0 || Object.keys(branchCaps).length === 0}
                   >
-                    Create session
+                    Create batch
                   </Button>
                 </form>
               </DialogContent>
