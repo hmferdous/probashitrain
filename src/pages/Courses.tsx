@@ -322,9 +322,28 @@ export default function Courses() {
                     <Label htmlFor="title">Title *</Label>
                     <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tags (e.g. online / in-person) are set per batch, not here — one course can run as multiple batches.
-                  </p>
+                  <div className="space-y-2">
+                    <Label>Tags</Label>
+                    <div className="flex flex-wrap gap-1.5 min-h-[38px] items-center border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-ring">
+                      {tags.map((t) => (
+                        <span key={t} className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
+                          {t}
+                          <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={onTagKey}
+                        onBlur={() => addTag(tagInput)}
+                        placeholder={tags.length === 0 ? "Type a tag and press Enter…" : ""}
+                        className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Up to 10 tags, 30 chars each. Press Enter or comma to add.</p>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="description">Description (English)</Label>
                     <Textarea id="description" name="description" rows={3} maxLength={1000} defaultValue={editing?.description ?? ""} />
