@@ -31,6 +31,18 @@ const EDUCATION_LABELS: Record<EducationLevel, string> = {
   none: "No requirement", jsc: "JSC", ssc: "SSC", hsc: "HSC",
   diploma: "Diploma", bachelors: "Bachelor's", masters: "Master's",
 };
+const MONTHS = [
+  { value: "1", label: "January" }, { value: "2", label: "February" },
+  { value: "3", label: "March" }, { value: "4", label: "April" },
+  { value: "5", label: "May" }, { value: "6", label: "June" },
+  { value: "7", label: "July" }, { value: "8", label: "August" },
+  { value: "9", label: "September" }, { value: "10", label: "October" },
+  { value: "11", label: "November" }, { value: "12", label: "December" },
+];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 6 }, (_, i) => String(CURRENT_YEAR + i));
+const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   nid: "NID", education_certificate: "Education certificate", cv: "CV",
   training_certificate: "Training certificate", photo: "Photo", other: "Other",
@@ -97,6 +109,12 @@ export default function Batches() {
   const [feeCollection, setFeeCollection] = useState<FeeCollection>("manual");
   const [showCourseDetails, setShowCourseDetails] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [startDay, setStartDay] = useState("");
+  const [startMonth, setStartMonth] = useState("");
+  const [startYear, setStartYear] = useState("");
+  const [endDay, setEndDay] = useState("");
+  const [endMonth, setEndMonth] = useState("");
+  const [endYear, setEndYear] = useState("");
 
   const load = async () => {
     if (!center) return;
@@ -147,6 +165,8 @@ export default function Batches() {
     setDurationValue(""); setDurationUnit("hours"); setPrice("");
     setTags([]); setTagInput(""); setDocRequirements([]); setFeeCollection("manual");
     setShowCourseDetails(false); setShowMoreOptions(false);
+    setStartDay(""); setStartMonth(""); setStartYear("");
+    setEndDay(""); setEndMonth(""); setEndYear("");
   };
 
   const applyCourseDefaults = async (courseId: string) => {
@@ -209,6 +229,11 @@ export default function Batches() {
         return;
       }
     }
+    if (!startMonth || !startYear) { toast.error("Start month and year are required"); return; }
+    if (!endMonth || !endYear) { toast.error("End month and year are required"); return; }
+    const startDate = `${startYear}-${startMonth.padStart(2, "0")}-${(startDay || "01").padStart(2, "0")}`;
+    const endDate = `${endYear}-${endMonth.padStart(2, "0")}-${(endDay || "01").padStart(2, "0")}`;
+    if (new Date(startDate) > new Date(endDate)) { toast.error("Start date must be before end date"); return; }
     const fd = new FormData(e.currentTarget);
     const batchName = String(fd.get("name") || "").trim();
     if (!batchName) { toast.error("Batch name is required"); return; }
@@ -224,8 +249,8 @@ export default function Batches() {
       center_id: center.id,
       course_id: selectedCourse,
       name: batchName,
-      start_date: String(fd.get("start_date")),
-      end_date: String(fd.get("end_date")),
+      start_date: startDate,
+      end_date: endDate,
       capacity: totalCapacity,
       status: "draft",
       description: description.trim() || null,
@@ -304,14 +329,51 @@ export default function Batches() {
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="start_date">Start date *</Label>
-                      <Input id="start_date" name="start_date" type="date" required />
+                  <div className="space-y-2">
+                    <Label>Start date <span className="text-muted-foreground text-xs font-normal">(month & year required)</span></Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select value={startDay} onValueChange={setStartDay}>
+                        <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                        <SelectContent>
+                          {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={startMonth} onValueChange={setStartMonth}>
+                        <SelectTrigger><SelectValue placeholder="Month *" /></SelectTrigger>
+                        <SelectContent>
+                          {MONTHS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={startYear} onValueChange={setStartYear}>
+                        <SelectTrigger><SelectValue placeholder="Year *" /></SelectTrigger>
+                        <SelectContent>
+                          {YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="end_date">End date *</Label>
-                      <Input id="end_date" name="end_date" type="date" required />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>End date <span className="text-muted-foreground text-xs font-normal">(month & year required)</span></Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select value={endDay} onValueChange={setEndDay}>
+                        <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                        <SelectContent>
+                          {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={endMonth} onValueChange={setEndMonth}>
+                        <SelectTrigger><SelectValue placeholder="Month *" /></SelectTrigger>
+                        <SelectContent>
+                          {MONTHS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={endYear} onValueChange={setEndYear}>
+                        <SelectTrigger><SelectValue placeholder="Year *" /></SelectTrigger>
+                        <SelectContent>
+                          {YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
