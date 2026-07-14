@@ -91,7 +91,7 @@ export default function BatchDetail() {
     if (!id) return;
     const { data: b } = await supabase
       .from("batches")
-      .select("*, courses(title, duration_hours, trades(name))")
+      .select("*, courses(title, duration_hours)")
       .eq("id", id).maybeSingle();
     setBatch(b);
     // Load assigned instructors
@@ -273,7 +273,7 @@ export default function BatchDetail() {
         )}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <Badge variant="secondary" className="mb-2">{batch.courses?.trades?.name} · {batch.courses?.title}</Badge>
+            <Badge variant="secondary" className="mb-2">{batch.courses?.title}</Badge>
             <h1 className="text-3xl font-bold">{batch.name}</h1>
             <p className="text-muted-foreground mt-1">
               {format(new Date(batch.start_date), "MMM d")} → {format(new Date(batch.end_date), "MMM d, yyyy")} ·

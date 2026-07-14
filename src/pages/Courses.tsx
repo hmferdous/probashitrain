@@ -36,7 +36,7 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
 
 interface Course {
   id: string; code: string; title: string; description: string | null;
-  description_bn: string | null;
+  description_bn: string | null; category: string | null;
   duration_hours: number; price: number | null;
   duration_value: number | null; duration_unit: DurationUnit | null;
   requirements_text: string | null;
@@ -44,10 +44,8 @@ interface Course {
   eligibility_min_age: number | null;
   eligibility_max_age: number | null;
   eligibility_education: EducationLevel | null;
-  trade_id: string | null; tags: string[] | null;
-  trades?: { name: string } | null;
+  tags: string[] | null;
 }
-interface Trade { id: string; name: string; }
 interface Material {
   id: string; course_id: string; file_name: string; file_path: string;
   mime_type: string | null; size_bytes: number | null;
@@ -67,10 +65,8 @@ export default function Courses() {
   const { plan } = usePlan();
   const [courses, setCourses] = useState<Course[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [trades, setTrades] = useState<Trade[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
-  const [tradeId, setTradeId] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -80,7 +76,6 @@ export default function Courses() {
   const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [manageCourse, setManageCourse] = useState<Course | null>(null);
-  const [filterTrade, setFilterTrade] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
 
@@ -88,7 +83,6 @@ export default function Courses() {
 
   const openEdit = (c: Course) => {
     setEditing(c);
-    setTradeId(c.trade_id ?? "");
     setTags(c.tags ?? []);
     setTagInput("");
     setPendingFiles([]);
@@ -101,15 +95,13 @@ export default function Courses() {
 
   const load = async () => {
     if (!center) return;
-    const [c, m, t] = await Promise.all([
-      supabase.from("courses").select("*, trades(name)").eq("center_id", center.id).order("created_at", { ascending: false }),
+    const [c, m] = await Promise.all([
+      supabase.from("courses").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
       supabase.from("course_materials").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
-      supabase.from("trades").select("id, name").eq("center_id", center.id).order("name"),
     ]);
     const courseList = (c.data as any) ?? [];
     setCourses(courseList);
     setMaterials((m.data as any) ?? []);
-    setTrades(t.data ?? []);
     const ids = courseList.map((x: Course) => x.id);
     if (ids.length) {
       const { data: docs } = await supabase
@@ -134,7 +126,7 @@ export default function Courses() {
 
   const resetForm = () => {
     setEditing(null);
-    setTradeId(""); setTags([]); setTagInput(""); setPendingFiles([]);
+    setTags([]); setTagInput(""); setPendingFiles([]);
     setDurationUnit("hours"); setEligGender(""); setEligEducation(""); setDocRequirements([]);
   };
 
@@ -197,7 +189,6 @@ export default function Courses() {
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center) return;
-    if (!tradeId) { toast.error("Select a trade"); return; }
     const fd = new FormData(e.currentTarget);
     const payload = {
       title: String(fd.get("title") || "").trim(),
@@ -211,7 +202,6 @@ export default function Courses() {
       eligibility_min_age: fd.get("eligibility_min_age") ? Number(fd.get("eligibility_min_age")) : null,
       eligibility_max_age: fd.get("eligibility_max_age") ? Number(fd.get("eligibility_max_age")) : null,
       eligibility_education: eligEducation || null,
-      trade_id: tradeId || null,
       tags,
     };
     setSubmitting(true);
@@ -294,17 +284,14 @@ export default function Courses() {
 
   const materialsByCourse = (id: string) => materials.filter((m) => m.course_id === id);
 
-  const displayBadge = (c: Course) => c.trades?.name ?? "No trade";
-
   const visibleCourses = useMemo(() => {
     const q = search.trim().toLowerCase();
     return courses.filter((c) => {
-      if (filterTrade && c.trade_id !== filterTrade) return false;
       if (filterTag && !(c.tags ?? []).includes(filterTag)) return false;
       if (q && !c.title.toLowerCase().includes(q) && !(c.description ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [courses, filterTrade, filterTag, search]);
+  }, [courses, filterTag, search]);
 
   return (
     <AppLayout>
@@ -335,25 +322,7 @@ export default function Courses() {
                     <Label htmlFor="title">Title *</Label>
                     <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="trade">Trade *</Label>
-                    <Select value={tradeId} onValueChange={setTradeId}>
-                      <SelectTrigger id="trade">
-                        <SelectValue placeholder={trades.length ? "Select a trade" : "No trades yet — create one first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {trades.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {trades.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        <Link to="/app/trades" className="text-primary font-medium">Create a trade</Link> before adding a course.
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-2">
+                  <p className="text-xs text-muted-foreground">
                     Tags (e.g. online / in-person) are set per batch, not here — one course can run as multiple batches.
                   </p>
                   <div className="space-y-2">
@@ -521,14 +490,6 @@ export default function Courses() {
                 className="pl-8 h-9"
               />
             </div>
-            <select
-              value={filterTrade}
-              onChange={(e) => setFilterTrade(e.target.value)}
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-            >
-              <option value="">All trades</option>
-              {trades.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
             {tagSuggestions.length > 0 && (
               <select
                 value={filterTag}
@@ -539,8 +500,8 @@ export default function Courses() {
                 {tagSuggestions.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
-            {(filterTrade || filterTag || search) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterTrade(""); setFilterTag(""); setSearch(""); }}>
+            {(filterTag || search) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterTag(""); setSearch(""); }}>
                 Clear
               </Button>
             )}
@@ -564,7 +525,7 @@ export default function Courses() {
                 <Card key={c.id} className="p-5 hover:shadow-elegant transition-shadow group">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{displayBadge(c)}</Badge>
+                      {c.category && <Badge variant="secondary">{c.category}</Badge>}
                       <span className="text-[10px] font-mono text-muted-foreground">{c.code}</span>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">

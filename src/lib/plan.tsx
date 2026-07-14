@@ -27,7 +27,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
     name: "Basic",
     price: "৳ 0",
     features: [
-      "Trades & courses",
+      "Courses & batches",
       "Manage batches",
       "Ami Probashi applications",
       "Up to 50 students",

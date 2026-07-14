@@ -6,38 +6,35 @@ import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import LockedOverlay from "@/components/LockedOverlay";
 import { Card } from "@/components/ui/card";
-import { Layers, BookOpen, CalendarDays, Users, Award, Inbox, TrendingUp, PieChart as PieIcon } from "lucide-react";
+import { BookOpen, CalendarDays, Users, Award, Inbox, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, ResponsiveContainer,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend
 } from "recharts";
 import { format, startOfMonth, subMonths } from "date-fns";
 
 interface Stats {
-  trades: number; courses: number; batches: number;
+  courses: number; batches: number;
   students: number; applied: number; certified: number;
 }
 
 interface TrendPoint { month: string; students: number; certified: number }
 interface NamedValue { name: string; value: number }
 
-const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--success))", "hsl(var(--info))", "hsl(var(--warning))"];
 const SOURCE_LABEL: Record<string, string> = { ami_probashi: "Ami Probashi", manual: "Manual entry" };
 
 export default function Dashboard() {
   const { center, profile } = useAuth();
   const { plan } = usePlan();
-  const [stats, setStats] = useState<Stats>({ trades: 0, courses: 0, batches: 0, students: 0, applied: 0, certified: 0 });
+  const [stats, setStats] = useState<Stats>({ courses: 0, batches: 0, students: 0, applied: 0, certified: 0 });
   const [trend, setTrend] = useState<TrendPoint[]>([]);
-  const [tradeBreakdown, setTradeBreakdown] = useState<NamedValue[]>([]);
   const [sourceMix, setSourceMix] = useState<NamedValue[]>([]);
 
   useEffect(() => {
     if (!center) return;
     (async () => {
-      const [t, c, b, s, a, cert] = await Promise.all([
-        supabase.from("trades").select("id", { count: "exact", head: true }).eq("center_id", center.id),
+      const [c, b, s, a, cert] = await Promise.all([
         supabase.from("courses").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("batches").select("id", { count: "exact", head: true }).eq("center_id", center.id),
         supabase.from("students").select("id", { count: "exact", head: true }).eq("center_id", center.id),
@@ -45,13 +42,13 @@ export default function Dashboard() {
         supabase.from("enrollments").select("id, batches!inner(center_id)", { count: "exact", head: true }).eq("pipeline_status", "certified").eq("batches.center_id", center.id),
       ]);
       setStats({
-        trades: t.count ?? 0, courses: c.count ?? 0, batches: b.count ?? 0,
+        courses: c.count ?? 0, batches: b.count ?? 0,
         students: s.count ?? 0, applied: a.count ?? 0, certified: cert.count ?? 0,
       });
 
       const { data: enrolls } = await supabase
         .from("enrollments")
-        .select("applied_at, certificate_issued_at, source, batches!inner(center_id, courses(trades(name)))")
+        .select("applied_at, certificate_issued_at, source, batches!inner(center_id)")
         .eq("batches.center_id", center.id);
       const rows = enrolls ?? [];
 
@@ -68,13 +65,6 @@ export default function Dashboard() {
       });
       setTrend(trendData);
 
-      const tradeCounts: Record<string, number> = {};
-      rows.forEach((r: any) => {
-        const name = r.batches?.courses?.trades?.name;
-        if (name) tradeCounts[name] = (tradeCounts[name] ?? 0) + 1;
-      });
-      setTradeBreakdown(Object.entries(tradeCounts).map(([name, value]) => ({ name, value })));
-
       const sourceCounts: Record<string, number> = {};
       rows.forEach((r: any) => {
         const label = SOURCE_LABEL[r.source] ?? r.source;
@@ -85,7 +75,6 @@ export default function Dashboard() {
   }, [center]);
 
   const cards = [
-    { label: "Trades", value: stats.trades, icon: Layers, to: "/app/trades", color: "bg-info/10 text-info" },
     { label: "Courses", value: stats.courses, icon: BookOpen, to: "/app/courses", color: "bg-primary/10 text-primary" },
     { label: "Batches", value: stats.batches, icon: CalendarDays, to: "/app/batches", color: "bg-accent/15 text-accent-foreground" },
     { label: "Students", value: stats.students, icon: Users, to: "/app/students", color: "bg-success/10 text-success" },
@@ -121,24 +110,6 @@ export default function Dashboard() {
             <Line type="monotone" dataKey="students" name="Enrolled" stroke="hsl(var(--primary))" strokeWidth={2} />
             <Line type="monotone" dataKey="certified" name="Certified" stroke="hsl(var(--accent))" strokeWidth={2} />
           </LineChart>
-        </ResponsiveContainer>
-      ) : chartEmptyState}
-    </Card>
-  );
-
-  const tradeChart = (
-    <Card className="p-6">
-      <h3 className="font-semibold mb-1 flex items-center gap-2"><PieIcon className="h-4 w-4 text-accent" /> Students by Trade</h3>
-      <p className="text-xs text-muted-foreground mb-4">Distribution across active programs</p>
-      {tradeBreakdown.length > 0 ? (
-        <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
-            <Pie data={tradeBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-              {tradeBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-            </Pie>
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-          </PieChart>
         </ResponsiveContainer>
       ) : chartEmptyState}
     </Card>
@@ -187,7 +158,7 @@ export default function Dashboard() {
           {plan.locked.advancedCharts ? (
             <LockedOverlay
               title="Advanced analytics"
-              description="Enrollment trends, trade breakdowns, and source mix unlock on Premium."
+              description="Enrollment trends and source mix unlock on Premium."
               requiredPlan="Premium"
             >
               {trendChart}
@@ -196,33 +167,23 @@ export default function Dashboard() {
 
           {plan.locked.advancedCharts ? (
             <LockedOverlay
-              title="Trade distribution"
-              description="Visualize how students split across your trades on Premium."
+              title="Admission insights"
+              description="See where your students come from — Ami Probashi, walk-in, referrals — on Premium."
               requiredPlan="Premium"
             >
-              {tradeChart}
+              {sourceChart}
             </LockedOverlay>
-          ) : tradeChart}
+          ) : sourceChart}
         </div>
-
-        {plan.locked.advancedCharts ? (
-          <LockedOverlay
-            title="Admission insights"
-            description="See where your students come from — Ami Probashi, walk-in, referrals — on Premium."
-            requiredPlan="Premium"
-          >
-            {sourceChart}
-          </LockedOverlay>
-        ) : sourceChart}
 
         <Card className="p-8 bg-gradient-primary text-primary-foreground">
           <h3 className="text-xl font-semibold mb-2">Get started</h3>
           <p className="text-primary-foreground/80 mb-4 text-sm">
-            Create a trade, add courses, then publish your first training batch to the Ami Probashi app.
+            Create a course, then publish a training batch to the Ami Probashi app.
           </p>
           <div className="flex gap-2 flex-wrap">
-            <Link to="/app/trades" className="px-4 py-2 rounded-lg bg-primary-foreground text-primary text-sm font-medium hover:opacity-90">
-              + Add a trade
+            <Link to="/app/courses" className="px-4 py-2 rounded-lg bg-primary-foreground text-primary text-sm font-medium hover:opacity-90">
+              + Add a course
             </Link>
             <Link to="/app/batches" className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-medium hover:opacity-90">
               + Publish a batch

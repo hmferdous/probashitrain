@@ -12,7 +12,6 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
-import Trades from "./pages/Trades";
 import Courses from "./pages/Courses";
 import Batches from "./pages/Batches";
 import BatchDetail from "./pages/BatchDetail";
@@ -57,7 +56,6 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/app/trades" element={<ProtectedRoute><Trades /></ProtectedRoute>} />
             <Route path="/app/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
             <Route path="/app/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
             <Route path="/app/batches/:id" element={<ProtectedRoute><BatchDetail /></ProtectedRoute>} />

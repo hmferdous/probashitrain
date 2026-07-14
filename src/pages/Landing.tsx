@@ -2,12 +2,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  GraduationCap, Layers, Users, ClipboardCheck, Award, Video,
+  GraduationCap, BookOpen, Users, ClipboardCheck, Award, Video,
   Smartphone, ArrowRight, CheckCircle2
 } from "lucide-react";
 
 const features = [
-  { icon: Layers, title: "Trades → Courses → Batches", desc: "Organize your training catalog with a clean three-level hierarchy." },
+  { icon: BookOpen, title: "Courses → Batches", desc: "Organize your training catalog with courses and scheduled batches." },
   { icon: Smartphone, title: "Ami Probashi integration", desc: "Publish batches to the mobile app and receive applications instantly." },
   { icon: Users, title: "Student pipeline", desc: "Applied → Shortlisted → Training → Completed → Certificate, end-to-end." },
   { icon: ClipboardCheck, title: "Attendance tracking", desc: "Daily attendance per batch with present/absent/late marking." },
