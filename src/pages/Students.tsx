@@ -43,10 +43,17 @@ export default function Students() {
       return;
     }
     const fd = new FormData(e.currentTarget);
+    const phone = String(fd.get("phone") || "").trim() || null;
+    if (phone) {
+      const { count } = await supabase.from("students")
+        .select("id", { count: "exact", head: true })
+        .eq("center_id", center.id).eq("phone", phone);
+      if (count && count > 0) { toast.error("A student with this phone number already exists in your center."); return; }
+    }
     const { error } = await supabase.from("students").insert({
       center_id: center.id,
       full_name: String(fd.get("full_name") || "").trim(),
-      phone: String(fd.get("phone") || "").trim() || null,
+      phone,
       email: String(fd.get("email") || "").trim() || null,
       nid: String(fd.get("nid") || "").trim() || null,
       address: String(fd.get("address") || "").trim() || null,
