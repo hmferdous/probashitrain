@@ -958,40 +958,32 @@ function StudentDetailDialog({
 // ── Attendance sheet ─────────────────────────────────────────────────────────
 
 type AttStatus = "present" | "absent" | "late";
-type AttRow = { status?: AttStatus; sign_in_time?: string | null; sign_out_time?: string | null };
+
+const ATT_OPTIONS: { value: AttStatus; label: string; active: string; }[] = [
+  { value: "present", label: "Present", active: "bg-success/15 text-success border-success/40" },
+  { value: "absent",  label: "Absent",  active: "bg-destructive/10 text-destructive border-destructive/40" },
+  { value: "late",    label: "Late",    active: "bg-warning/15 text-warning border-warning/40" },
+];
 
 function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[]; onChange: () => void }) {
   const [date, setDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
-  const [rows, setRows] = useState<Record<string, AttRow>>({});
+  const [rows, setRows] = useState<Record<string, AttStatus | undefined>>({});
 
   useEffect(() => {
     if (enrollments.length === 0) return;
     (async () => {
       const ids = enrollments.map((e) => e.id);
-      const { data } = await supabase.from("attendance").select("*").in("enrollment_id", ids).eq("session_date", date);
-      const map: Record<string, AttRow> = {};
-      (data ?? []).forEach((a: any) => {
-        map[a.enrollment_id] = {
-          status: a.status,
-          sign_in_time: a.sign_in_time ? String(a.sign_in_time).slice(0, 5) : null,
-          sign_out_time: a.sign_out_time ? String(a.sign_out_time).slice(0, 5) : null,
-        };
-      });
+      const { data } = await supabase.from("attendance").select("enrollment_id, status").in("enrollment_id", ids).eq("session_date", date);
+      const map: Record<string, AttStatus | undefined> = {};
+      (data ?? []).forEach((a: any) => { map[a.enrollment_id] = a.status; });
       setRows(map);
     })();
   }, [date, enrollments]);
 
-  const save = async (enrId: string, patch: Partial<AttRow>) => {
-    const next: AttRow = { ...(rows[enrId] ?? {}), ...patch };
-    setRows((m) => ({ ...m, [enrId]: next }));
+  const save = async (enrId: string, status: AttStatus) => {
+    setRows((m) => ({ ...m, [enrId]: status }));
     const { error } = await supabase.from("attendance").upsert(
-      {
-        enrollment_id: enrId,
-        session_date: date,
-        status: next.status ?? "present",
-        sign_in_time: next.sign_in_time || null,
-        sign_out_time: next.sign_out_time || null,
-      } as any,
+      { enrollment_id: enrId, session_date: date, status } as any,
       { onConflict: "enrollment_id,session_date" }
     );
     if (error) toast.error(error.message);
@@ -1002,47 +994,47 @@ function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[];
 
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <ClipboardCheck className="h-5 w-5 text-primary" />
-        <Label>Date:</Label>
+        <Label>Date</Label>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
+        <span className="text-xs text-muted-foreground ml-1">{enrollments.length} student{enrollments.length !== 1 ? "s" : ""}</span>
       </div>
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
-              <th className="px-3 py-2 font-medium">Student</th>
-              <th className="px-3 py-2 font-medium">Contact</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Sign-in <span className="text-muted-foreground font-normal">(optional)</span></th>
-              <th className="px-3 py-2 font-medium">Sign-out <span className="text-muted-foreground font-normal">(optional)</span></th>
+              <th className="px-4 py-2.5 font-medium">#</th>
+              <th className="px-4 py-2.5 font-medium">Student</th>
+              <th className="px-4 py-2.5 font-medium">Present</th>
+              <th className="px-4 py-2.5 font-medium">Absent</th>
+              <th className="px-4 py-2.5 font-medium">Late</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {enrollments.map((e) => {
-              const row = rows[e.id] ?? {};
+            {enrollments.map((e, idx) => {
+              const current = rows[e.id];
               return (
-                <tr key={e.id} className="align-middle">
-                  <td className="px-3 py-2 font-medium">{e.students.full_name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{e.students.phone || e.students.email || "—"}</td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={row.status ?? ""}
-                      onChange={(ev) => save(e.id, { status: ev.target.value as AttStatus })}
-                      className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                    >
-                      <option value="" disabled>—</option>
-                      {(["present", "absent", "late"] as AttStatus[]).map((s) => (
-                        <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Input type="time" value={row.sign_in_time ?? ""} onChange={(ev) => save(e.id, { sign_in_time: ev.target.value })} className="w-32" />
-                  </td>
-                  <td className="px-3 py-2">
-                    <Input type="time" value={row.sign_out_time ?? ""} onChange={(ev) => save(e.id, { sign_out_time: ev.target.value })} className="w-32" />
-                  </td>
+                <tr key={e.id} className="align-middle hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
+                  <td className="px-4 py-3 font-medium">{e.students.full_name}</td>
+                  {ATT_OPTIONS.map((opt) => {
+                    const checked = current === opt.value;
+                    return (
+                      <td key={opt.value} className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => save(e.id, opt.value)}
+                          className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${
+                            checked ? opt.active + " border-current" : "border-border hover:border-muted-foreground"
+                          }`}
+                          title={opt.label}
+                        >
+                          {checked && <span className="h-3 w-3 rounded-full bg-current" />}
+                        </button>
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
