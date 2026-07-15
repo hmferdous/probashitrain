@@ -124,7 +124,7 @@ export default function Applications() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge variant="outline" className="text-[10px]">📱 Ami Probashi</Badge>
+                  <Badge variant="outline" className="text-[10px]"><Smartphone className="h-3 w-3 mr-1" />Ami Probashi</Badge>
                   <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => decide(e.id, false)}>
                     <X className="h-4 w-4 mr-1" /> Reject
                   </Button>

@@ -5,6 +5,7 @@ import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -325,9 +326,9 @@ export default function UserManagement() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cfg.color}`}>
+                    <Badge variant="outline" className={`gap-1 ${cfg.color}`}>
                       <Icon className="h-3 w-3" />{cfg.label}
-                    </span>
+                    </Badge>
                     {!isMe && (
                       <>
                         {branches.length > 0 && (
@@ -366,9 +367,9 @@ export default function UserManagement() {
                     <div className="font-medium text-sm truncate">{inv.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{inv.email}{inv.phone ? ` · ${inv.phone}` : ""}</div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.color ?? ""}`}>
+                      <Badge variant="outline" className={`text-[10px] ${ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.color ?? ""}`}>
                         {ROLE_CONFIG[inv.role as keyof typeof ROLE_CONFIG]?.label ?? inv.role}
-                      </span>
+                      </Badge>
                       {invBranchNames.length > 0
                         ? invBranchNames.map(n => (
                             <span key={n} className="inline-flex items-center gap-0.5 text-[10px] bg-muted px-1.5 py-0.5 rounded">

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { PIPELINE_STATUS_CONFIG, type PipelineStatus } from "@/lib/statusColors";
+import { PIPELINE_STATUS_CONFIG, type PipelineStatus, PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 
@@ -785,12 +785,7 @@ function StudentDetailDialog({
 
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
   const outstanding = Math.max(0, batchPrice - totalPaid);
-  const payStatus = totalPaid === 0 ? "Unpaid" : outstanding <= 0 ? "Paid" : "Partial";
-  const payStatusColor = payStatus === "Paid"
-    ? "bg-success/15 text-success border-success/30"
-    : payStatus === "Partial"
-    ? "bg-warning/15 text-warning border-warning/30"
-    : "bg-destructive/15 text-destructive border-destructive/30";
+  const payStatus: FeePaymentStatus = totalPaid === 0 ? "Unpaid" : outstanding <= 0 ? "Paid" : "Partial";
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -827,7 +822,7 @@ function StudentDetailDialog({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${tab === "payment" ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Wallet className="h-4 w-4" /> Payment
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${payStatusColor}`}>{payStatus}</span>
+            <StatusBadge status={PAYMENT_STATUS_CONFIG[payStatus]} className="text-[10px]" />
           </button>
         </div>
 
