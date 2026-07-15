@@ -20,6 +20,9 @@ import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, Chev
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { BATCH_STATUS_CONFIG, type BatchStatus } from "@/lib/statusColors";
+import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -70,14 +73,6 @@ interface Batch {
   fee_collection: FeeCollection;
   tags: string[] | null;
 }
-
-const statusColors: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  published: "bg-info/15 text-info",
-  in_progress: "bg-accent/20 text-accent-foreground",
-  completed: "bg-success/15 text-success",
-  archived: "bg-muted text-muted-foreground",
-};
 
 interface Branch { id: string; name_en: string; name_bn: string; }
 
@@ -638,14 +633,9 @@ export default function Batches() {
           }
         />
         {courses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground">Create courses first, then add batches under them.</p>
-          </Card>
+          <EmptyState icon={CalendarDays} message="Create courses first, then add batches under them." />
         ) : batches.length === 0 ? (
-          <Card className="p-12 text-center">
-            <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No batches yet.</p>
-          </Card>
+          <EmptyState icon={CalendarDays} message="No batches yet." />
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {batches.map((b) => (
@@ -655,7 +645,7 @@ export default function Batches() {
                     <Badge variant="secondary" className="mb-2">{b.courses?.title}</Badge>
                     <h3 className="font-semibold text-lg">{b.name}</h3>
                   </div>
-                  <Badge className={statusColors[b.status] || ""}>{b.status.replace("_", " ")}</Badge>
+                  <StatusBadge status={BATCH_STATUS_CONFIG[b.status as BatchStatus] ?? BATCH_STATUS_CONFIG.draft} />
                 </div>
                 {(b.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">

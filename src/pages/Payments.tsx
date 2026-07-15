@@ -19,6 +19,9 @@ import {
 import { Wallet, Plus, FileText, Search, Smartphone, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
+import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
 
 type Method = "cash" | "ami_probashi" | "bank" | "mobile_banking" | "other";
 const METHOD_LABEL: Record<Method, string> = {
@@ -145,22 +148,16 @@ export default function Payments() {
         </div>
 
         {filtered.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No enrolled students yet.</p>
-          </Card>
+          <EmptyState
+            icon={rows.length === 0 ? Wallet : Search}
+            message={rows.length === 0 ? "No enrolled students yet." : "No matches for your search."}
+          />
         ) : (
           <Card className="divide-y">
             {filtered.map((r) => {
               const due = r.course_price - r.paid;
-              const status =
+              const status: FeePaymentStatus =
                 r.paid === 0 ? "Unpaid" : due <= 0 ? "Paid" : "Partial";
-              const statusColor =
-                status === "Paid"
-                  ? "bg-success/15 text-success border-success/30"
-                  : status === "Partial"
-                  ? "bg-warning/15 text-warning border-warning/30"
-                  : "bg-destructive/15 text-destructive border-destructive/30";
               return (
                 <div key={r.enrollment_id} className="p-4 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors">
                   <div className="min-w-0 flex-1">
@@ -170,7 +167,7 @@ export default function Payments() {
                         <Badge variant="outline" className="text-[10px]"><Smartphone className="h-3 w-3 mr-1" />App</Badge>
                       )}
                       <Badge variant="outline" className="text-[10px]">{FEE_COLLECTION_LABEL[r.fee_collection]}</Badge>
-                      <Badge variant="outline" className={`text-[10px] ${statusColor}`}>{status}</Badge>
+                      <StatusBadge status={PAYMENT_STATUS_CONFIG[status]} className="text-[10px]" />
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       {r.course_title} — {r.batch_name} {r.student_phone ? `· ${r.student_phone}` : ""}
