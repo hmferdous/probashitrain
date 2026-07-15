@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -20,6 +21,10 @@ import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, Chev
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { BATCH_STATUS_CONFIG, type BatchStatus } from "@/lib/statusColors";
+import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
+import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -31,18 +36,6 @@ const EDUCATION_LABELS: Record<EducationLevel, string> = {
   none: "No requirement", jsc: "JSC", ssc: "SSC", hsc: "HSC",
   diploma: "Diploma", bachelors: "Bachelor's", masters: "Master's",
 };
-const MONTHS = [
-  { value: "1", label: "January" }, { value: "2", label: "February" },
-  { value: "3", label: "March" }, { value: "4", label: "April" },
-  { value: "5", label: "May" }, { value: "6", label: "June" },
-  { value: "7", label: "July" }, { value: "8", label: "August" },
-  { value: "9", label: "September" }, { value: "10", label: "October" },
-  { value: "11", label: "November" }, { value: "12", label: "December" },
-];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 6 }, (_, i) => String(CURRENT_YEAR + i));
-const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-
 const DOC_TYPE_LABELS: Record<DocType, string> = {
   nid: "NID", education_certificate: "Education certificate", cv: "CV",
   training_certificate: "Training certificate", photo: "Photo", other: "Other",
@@ -70,14 +63,6 @@ interface Batch {
   fee_collection: FeeCollection;
   tags: string[] | null;
 }
-
-const statusColors: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  published: "bg-info/15 text-info",
-  in_progress: "bg-accent/20 text-accent-foreground",
-  completed: "bg-success/15 text-success",
-  archived: "bg-muted text-muted-foreground",
-};
 
 interface Branch { id: string; name_en: string; name_bn: string; }
 
@@ -109,12 +94,8 @@ export default function Batches() {
   const [feeCollection, setFeeCollection] = useState<FeeCollection>("manual");
   const [showCourseDetails, setShowCourseDetails] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [startDay, setStartDay] = useState("");
-  const [startMonth, setStartMonth] = useState("");
-  const [startYear, setStartYear] = useState("");
-  const [endDay, setEndDay] = useState("");
-  const [endMonth, setEndMonth] = useState("");
-  const [endYear, setEndYear] = useState("");
+  const [startDate, setStartDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
+  const [endDate, setEndDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
 
   const load = async () => {
     if (!center) return;
@@ -165,8 +146,8 @@ export default function Batches() {
     setDurationValue(""); setDurationUnit("hours"); setPrice("");
     setTags([]); setTagInput(""); setDocRequirements([]); setFeeCollection("manual");
     setShowCourseDetails(false); setShowMoreOptions(false);
-    setStartDay(""); setStartMonth(""); setStartYear("");
-    setEndDay(""); setEndMonth(""); setEndYear("");
+    setStartDate({ day: "", month: "", year: "" });
+    setEndDate({ day: "", month: "", year: "" });
   };
 
   const applyCourseDefaults = async (courseId: string) => {
@@ -229,11 +210,11 @@ export default function Batches() {
         return;
       }
     }
-    if (!startMonth || !startYear) { toast.error("Start month and year are required"); return; }
-    if (!endMonth || !endYear) { toast.error("End month and year are required"); return; }
-    const startDate = `${startYear}-${startMonth.padStart(2, "0")}-${(startDay || "01").padStart(2, "0")}`;
-    const endDate = `${endYear}-${endMonth.padStart(2, "0")}-${(endDay || "01").padStart(2, "0")}`;
-    if (new Date(startDate) > new Date(endDate)) { toast.error("Start date must be before end date"); return; }
+    if (!startDate.month || !startDate.year) { toast.error("Start month and year are required"); return; }
+    if (!endDate.month || !endDate.year) { toast.error("End month and year are required"); return; }
+    const startISO = `${startDate.year}-${startDate.month.padStart(2, "0")}-${(startDate.day || "01").padStart(2, "0")}`;
+    const endISO = `${endDate.year}-${endDate.month.padStart(2, "0")}-${(endDate.day || "01").padStart(2, "0")}`;
+    if (new Date(startISO) > new Date(endISO)) { toast.error("Start date must be before end date"); return; }
     const fd = new FormData(e.currentTarget);
     const batchName = String(fd.get("name") || "").trim();
     if (!batchName) { toast.error("Batch name is required"); return; }
@@ -249,8 +230,8 @@ export default function Batches() {
       center_id: center.id,
       course_id: selectedCourse,
       name: batchName,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: startISO,
+      end_date: endISO,
       capacity: totalCapacity,
       status: "draft",
       description: description.trim() || null,
@@ -283,7 +264,7 @@ export default function Batches() {
         selectedInstructors.map((uid) => ({ batch_id: created.id, user_id: uid, center_id: center.id }))
       );
     }
-    toast.success("Session created");
+    toast.success("Batch created");
     setOpen(false); resetForm();
     load();
   };
@@ -311,7 +292,7 @@ export default function Batches() {
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>New batch</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   {/* ── Required fields ── */}
                   <div className="space-y-2">
@@ -329,53 +310,8 @@ export default function Batches() {
                     <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Start date <span className="text-muted-foreground text-xs font-normal">(month & year required)</span></Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Select value={startDay} onValueChange={setStartDay}>
-                        <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
-                        <SelectContent>
-                          {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={startMonth} onValueChange={setStartMonth}>
-                        <SelectTrigger><SelectValue placeholder="Month *" /></SelectTrigger>
-                        <SelectContent>
-                          {MONTHS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={startYear} onValueChange={setStartYear}>
-                        <SelectTrigger><SelectValue placeholder="Year *" /></SelectTrigger>
-                        <SelectContent>
-                          {YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>End date <span className="text-muted-foreground text-xs font-normal">(month & year required)</span></Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Select value={endDay} onValueChange={setEndDay}>
-                        <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
-                        <SelectContent>
-                          {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={endMonth} onValueChange={setEndMonth}>
-                        <SelectTrigger><SelectValue placeholder="Month *" /></SelectTrigger>
-                        <SelectContent>
-                          {MONTHS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={endYear} onValueChange={setEndYear}>
-                        <SelectTrigger><SelectValue placeholder="Year *" /></SelectTrigger>
-                        <SelectContent>
-                          {YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <DateSelect label="Start date" value={startDate} onChange={setStartDate} />
+                  <DateSelect label="End date" value={endDate} onChange={setEndDate} />
 
                   {/* ── Branches & capacity (required) ── */}
                   <div className="space-y-2">
@@ -384,7 +320,7 @@ export default function Batches() {
                       <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
                         No branches yet.{" "}
                         <Link to="/app/branches-management" className="text-primary underline">Add a branch</Link>{" "}
-                        before creating a session.
+                        before creating a batch.
                       </div>
                     ) : (
                       <div className="border rounded-md divide-y max-h-52 overflow-y-auto">
@@ -392,11 +328,9 @@ export default function Batches() {
                           const checked = br.id in branchCaps;
                           return (
                             <div key={br.id} className="flex items-center gap-3 p-3">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 accent-primary"
+                              <Checkbox
                                 checked={checked}
-                                onChange={(e) => toggleBranch(br.id, e.target.checked)}
+                                onCheckedChange={(v) => toggleBranch(br.id, v === true)}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{br.name_en}</div>
@@ -575,7 +509,7 @@ export default function Batches() {
                                     </SelectContent>
                                   </Select>
                                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                                    <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
+                                    <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
                                     Mandatory
                                   </label>
                                   <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
@@ -638,14 +572,9 @@ export default function Batches() {
           }
         />
         {courses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground">Create courses first, then add batches under them.</p>
-          </Card>
+          <EmptyState icon={CalendarDays} message="Create courses first, then add batches under them." />
         ) : batches.length === 0 ? (
-          <Card className="p-12 text-center">
-            <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No batches yet.</p>
-          </Card>
+          <EmptyState icon={CalendarDays} message="No batches yet." />
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {batches.map((b) => (
@@ -655,7 +584,7 @@ export default function Batches() {
                     <Badge variant="secondary" className="mb-2">{b.courses?.title}</Badge>
                     <h3 className="font-semibold text-lg">{b.name}</h3>
                   </div>
-                  <Badge className={statusColors[b.status] || ""}>{b.status.replace("_", " ")}</Badge>
+                  <StatusBadge status={BATCH_STATUS_CONFIG[b.status as BatchStatus] ?? BATCH_STATUS_CONFIG.draft} />
                 </div>
                 {(b.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">

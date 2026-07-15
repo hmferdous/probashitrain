@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -433,7 +434,7 @@ export default function Courses() {
                               </SelectContent>
                             </Select>
                             <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                              <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
+                              <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
                               Mandatory
                             </label>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
@@ -510,14 +511,13 @@ export default function Courses() {
               />
             </div>
             {tagSuggestions.length > 0 && (
-              <select
-                value={filterTag}
-                onChange={(e) => setFilterTag(e.target.value)}
-                className="h-9 rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="">All tags</option>
-                {tagSuggestions.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <Select value={filterTag || "all"} onValueChange={(v) => setFilterTag(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-9 w-40"><SelectValue placeholder="All tags" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All tags</SelectItem>
+                  {tagSuggestions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
             )}
             {(filterTag || search) && (
               <Button variant="ghost" size="sm" onClick={() => { setFilterTag(""); setSearch(""); }}>

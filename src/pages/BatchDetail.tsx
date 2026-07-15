@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
@@ -24,13 +25,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { PIPELINE_STATUS_CONFIG, type PipelineStatus, PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
+import StatusBadge from "@/components/StatusBadge";
+import EmptyState from "@/components/EmptyState";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
 type DurationUnit = "hours" | "days" | "weeks" | "months";
 type DocType = "nid" | "education_certificate" | "cv" | "training_certificate" | "photo" | "other";
 type FeeCollection = "ami_probashi" | "manual";
-type PipelineStatus = "applied" | "shortlisted" | "training_started" | "ongoing" | "completed" | "certified" | "rejected";
 type PaymentMethod = "cash" | "ami_probashi" | "bank" | "mobile_banking" | "other";
 
 const EDUCATION_LABELS: Record<EducationLevel, string> = {
@@ -46,15 +49,7 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   mobile_banking: "Mobile Banking", other: "Other",
 };
 
-const STATUS_CONFIG: Record<PipelineStatus, { label: string; color: string }> = {
-  applied:          { label: "Applied",         color: "bg-info/15 text-info border-info/30" },
-  shortlisted:      { label: "Shortlisted",     color: "bg-warning/15 text-warning border-warning/30" },
-  training_started: { label: "In Training",     color: "bg-primary/15 text-primary border-primary/30" },
-  ongoing:          { label: "In Training",     color: "bg-primary/15 text-primary border-primary/30" },
-  completed:        { label: "Completed",       color: "bg-success/15 text-success border-success/30" },
-  certified:        { label: "Certified",       color: "bg-amber-100 text-amber-800 border-amber-300" },
-  rejected:         { label: "Rejected",        color: "bg-destructive/15 text-destructive border-destructive/30" },
-};
+const STATUS_CONFIG = PIPELINE_STATUS_CONFIG;
 
 interface DocRequirement { doc_type: DocType; mandatory: boolean; }
 
@@ -409,8 +404,8 @@ export default function BatchDetail() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                          <input type="checkbox" checked={d.mandatory} onChange={(ev) => updateDocRequirement(i, { mandatory: ev.target.checked })} />
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
                           Mandatory
                         </label>
                         <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeDocRequirement(i)}>
@@ -449,12 +444,29 @@ export default function BatchDetail() {
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Admit new</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Admit new student</DialogTitle></DialogHeader>
-                  <form onSubmit={createStudentAndEnroll} className="space-y-3">
-                    <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
-                    <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
-                    <div><Label>Guardian number</Label><Input name="guardian_number" maxLength={30} /></div>
-                    <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
-                    <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
+                  <form onSubmit={createStudentAndEnroll} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_full_name">Full name *</Label>
+                      <Input id="admit_full_name" name="full_name" required maxLength={100} placeholder="Student's full name" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="admit_phone">Phone</Label>
+                        <Input id="admit_phone" name="phone" maxLength={30} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="admit_guardian_number">Guardian number</Label>
+                        <Input id="admit_guardian_number" name="guardian_number" maxLength={30} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_email">Email</Label>
+                      <Input id="admit_email" name="email" type="email" maxLength={255} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_nid">NID</Label>
+                      <Input id="admit_nid" name="nid" maxLength={30} />
+                    </div>
                     <Button type="submit" className="w-full">Admit student</Button>
                   </form>
                 </DialogContent>
@@ -496,7 +508,7 @@ export default function BatchDetail() {
             </div>
 
             {enrollments.length === 0 ? (
-              <Card className="p-12 text-center text-muted-foreground">No students enrolled yet.</Card>
+              <EmptyState icon={UserPlus} message="No students enrolled yet." />
             ) : (
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
@@ -528,13 +540,11 @@ export default function BatchDetail() {
                               {enr.students.phone || enr.students.email || "—"}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${cfg.color}`}>
-                                {cfg.label}
-                              </span>
+                              <StatusBadge status={cfg} />
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {enr.performance_score != null ? (
-                                <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{enr.performance_score}</span>
+                                <span className="flex items-center gap-1"><Star className="h-3 w-3 text-accent" />{enr.performance_score}</span>
                               ) : "—"}
                             </td>
                             <td className="px-4 py-3">
@@ -600,7 +610,7 @@ export default function BatchDetail() {
                 </div>
                 <div className="space-y-2">
                   {liveSessions.length === 0 ? (
-                    <Card className="p-8 text-center text-muted-foreground">No live sessions yet.</Card>
+                    <EmptyState icon={Video} message="No live sessions yet." className="p-8" />
                   ) : liveSessions.map((s) => (
                     <Card key={s.id} className="p-4 flex items-center justify-between">
                       <div>
@@ -685,9 +695,9 @@ function PipelineActions({
       {s === "completed" && (
         <>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onGrade(enr)}>
-            <Star className="h-3 w-3 mr-1 text-amber-500" /> Grade
+            <Star className="h-3 w-3 mr-1 text-accent" /> Grade
           </Button>
-          <Button size="sm" className="h-7 text-xs bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300" onClick={() => onMove(enr, "certified")}>
+          <Button size="sm" className="h-7 text-xs bg-accent/15 text-accent-foreground hover:bg-accent/25 border border-accent/30" onClick={() => onMove(enr, "certified")}>
             <Award className="h-3 w-3 mr-1" /> Issue cert
           </Button>
         </>
@@ -695,7 +705,7 @@ function PipelineActions({
       {s === "certified" && (
         <>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onGrade(enr)}>
-            <Star className="h-3 w-3 mr-1 text-amber-500" /> Grade
+            <Star className="h-3 w-3 mr-1 text-accent" /> Grade
           </Button>
           <Link to={`/app/certificates/${enr.id}`}>
             <Button size="sm" variant="outline" className="h-7 text-xs">View cert</Button>
@@ -793,12 +803,7 @@ function StudentDetailDialog({
 
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
   const outstanding = Math.max(0, batchPrice - totalPaid);
-  const payStatus = totalPaid === 0 ? "Unpaid" : outstanding <= 0 ? "Paid" : "Partial";
-  const payStatusColor = payStatus === "Paid"
-    ? "bg-success/15 text-success border-success/30"
-    : payStatus === "Partial"
-    ? "bg-warning/15 text-warning border-warning/30"
-    : "bg-destructive/15 text-destructive border-destructive/30";
+  const payStatus: FeePaymentStatus = totalPaid === 0 ? "Unpaid" : outstanding <= 0 ? "Paid" : "Partial";
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -835,7 +840,7 @@ function StudentDetailDialog({
             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${tab === "payment" ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Wallet className="h-4 w-4" /> Payment
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${payStatusColor}`}>{payStatus}</span>
+            <StatusBadge status={PAYMENT_STATUS_CONFIG[payStatus]} className="text-[10px]" />
           </button>
         </div>
 
@@ -1025,7 +1030,7 @@ function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[];
     onChange();
   };
 
-  if (enrollments.length === 0) return <Card className="p-8 text-center text-muted-foreground">No active students enrolled yet.</Card>;
+  if (enrollments.length === 0) return <EmptyState icon={ClipboardCheck} message="No active students enrolled yet." className="p-8" />;
 
   return (
     <>
