@@ -89,15 +89,33 @@ export default function Students() {
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Add student</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>New student (in-person admission)</DialogTitle></DialogHeader>
-                  <form onSubmit={handleCreate} className="space-y-3">
-                    <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
-                      <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
+                  <form onSubmit={handleCreate} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student_full_name">Full name *</Label>
+                      <Input id="student_full_name" name="full_name" required maxLength={100} placeholder="Student's full name" />
                     </div>
-                    <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
-                    <div><Label>Guardian number</Label><Input name="guardian_number" maxLength={30} /></div>
-                    <div><Label>Address</Label><Input name="address" maxLength={300} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="student_phone">Phone</Label>
+                        <Input id="student_phone" name="phone" maxLength={30} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="student_nid">NID</Label>
+                        <Input id="student_nid" name="nid" maxLength={30} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student_email">Email</Label>
+                      <Input id="student_email" name="email" type="email" maxLength={255} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student_guardian_number">Guardian number</Label>
+                      <Input id="student_guardian_number" name="guardian_number" maxLength={30} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student_address">Address</Label>
+                      <Input id="student_address" name="address" maxLength={300} />
+                    </div>
                     <Button type="submit" className="w-full">Add student</Button>
                   </form>
                 </DialogContent>

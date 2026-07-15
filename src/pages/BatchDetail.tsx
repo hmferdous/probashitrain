@@ -444,12 +444,29 @@ export default function BatchDetail() {
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Admit new</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Admit new student</DialogTitle></DialogHeader>
-                  <form onSubmit={createStudentAndEnroll} className="space-y-3">
-                    <div><Label>Full name *</Label><Input name="full_name" required maxLength={100} /></div>
-                    <div><Label>Phone</Label><Input name="phone" maxLength={30} /></div>
-                    <div><Label>Guardian number</Label><Input name="guardian_number" maxLength={30} /></div>
-                    <div><Label>Email</Label><Input name="email" type="email" maxLength={255} /></div>
-                    <div><Label>NID</Label><Input name="nid" maxLength={30} /></div>
+                  <form onSubmit={createStudentAndEnroll} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_full_name">Full name *</Label>
+                      <Input id="admit_full_name" name="full_name" required maxLength={100} placeholder="Student's full name" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="admit_phone">Phone</Label>
+                        <Input id="admit_phone" name="phone" maxLength={30} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="admit_guardian_number">Guardian number</Label>
+                        <Input id="admit_guardian_number" name="guardian_number" maxLength={30} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_email">Email</Label>
+                      <Input id="admit_email" name="email" type="email" maxLength={255} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admit_nid">NID</Label>
+                      <Input id="admit_nid" name="nid" maxLength={30} />
+                    </div>
                     <Button type="submit" className="w-full">Admit student</Button>
                   </form>
                 </DialogContent>
