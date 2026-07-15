@@ -319,7 +319,6 @@ export default function BatchDetail() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="unset">Anyone</SelectItem>
-                          <SelectItem value="any">Any</SelectItem>
                           <SelectItem value="male">Male</SelectItem>
                           <SelectItem value="female">Female</SelectItem>
                         </SelectContent>
