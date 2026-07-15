@@ -278,7 +278,7 @@ export default function Batches() {
         selectedInstructors.map((uid) => ({ batch_id: created.id, user_id: uid, center_id: center.id }))
       );
     }
-    toast.success("Session created");
+    toast.success("Batch created");
     setOpen(false); resetForm();
     load();
   };
@@ -306,7 +306,7 @@ export default function Batches() {
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>New training session</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>New batch</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   {/* ── Required fields ── */}
                   <div className="space-y-2">
@@ -379,7 +379,7 @@ export default function Batches() {
                       <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
                         No branches yet.{" "}
                         <Link to="/app/branches-management" className="text-primary underline">Add a branch</Link>{" "}
-                        before creating a session.
+                        before creating a batch.
                       </div>
                     ) : (
                       <div className="border rounded-md divide-y max-h-52 overflow-y-auto">
