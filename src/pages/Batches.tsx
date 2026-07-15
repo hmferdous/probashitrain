@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -387,11 +388,9 @@ export default function Batches() {
                           const checked = br.id in branchCaps;
                           return (
                             <div key={br.id} className="flex items-center gap-3 p-3">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 accent-primary"
+                              <Checkbox
                                 checked={checked}
-                                onChange={(e) => toggleBranch(br.id, e.target.checked)}
+                                onCheckedChange={(v) => toggleBranch(br.id, v === true)}
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium truncate">{br.name_en}</div>
@@ -570,7 +569,7 @@ export default function Batches() {
                                     </SelectContent>
                                   </Select>
                                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                                    <input type="checkbox" checked={d.mandatory} onChange={(e) => updateDocRequirement(i, { mandatory: e.target.checked })} />
+                                    <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
                                     Mandatory
                                   </label>
                                   <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>

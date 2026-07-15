@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
@@ -403,8 +404,8 @@ export default function BatchDetail() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                          <input type="checkbox" checked={d.mandatory} onChange={(ev) => updateDocRequirement(i, { mandatory: ev.target.checked })} />
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
                           Mandatory
                         </label>
                         <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeDocRequirement(i)}>

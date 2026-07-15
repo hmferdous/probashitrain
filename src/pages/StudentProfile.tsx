@@ -69,6 +69,7 @@ export default function StudentProfile() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [editing, setEditing] = useState(false);
+  const [genderValue, setGenderValue] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -107,7 +108,7 @@ export default function StudentProfile() {
       nid: String(fd.get("nid") || "").trim() || null,
       address: String(fd.get("address") || "").trim() || null,
       date_of_birth: (String(fd.get("date_of_birth") || "").trim() || null),
-      gender: String(fd.get("gender") || "").trim() || null,
+      gender: genderValue || null,
       education_level: String(fd.get("education_level") || "").trim() || null,
       occupation: String(fd.get("occupation") || "").trim() || null,
       emergency_contact_name: String(fd.get("emergency_contact_name") || "").trim() || null,
@@ -214,7 +215,13 @@ export default function StudentProfile() {
                 {student.nid && <span className="font-mono">NID {student.nid}</span>}
               </div>
             </div>
-            <Button variant="outline" onClick={() => setEditing((v) => !v)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditing((v) => !v);
+                setGenderValue(student.gender ?? "");
+              }}
+            >
               {editing ? "Cancel" : "Edit"}
             </Button>
           </div>
@@ -239,10 +246,15 @@ export default function StudentProfile() {
                 <div><Label>Date of birth</Label><Input name="date_of_birth" type="date" defaultValue={student.date_of_birth ?? ""} /></div>
                 <div>
                   <Label>Gender</Label>
-                  <select name="gender" defaultValue={student.gender ?? ""} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                    <option value="">—</option><option value="male">Male</option>
-                    <option value="female">Female</option><option value="other">Other</option>
-                  </select>
+                  <Select value={genderValue || "unset"} onValueChange={(v) => setGenderValue(v === "unset" ? "" : v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">—</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="md:col-span-2"><Label>Address</Label><Input name="address" defaultValue={student.address ?? ""} /></div>
                 <div><Label>Highest education</Label><Input name="education_level" placeholder="e.g. SSC, HSC, Bachelor's" defaultValue={student.education_level ?? ""} /></div>
