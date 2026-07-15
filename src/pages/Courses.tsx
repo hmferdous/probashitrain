@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -79,6 +80,8 @@ export default function Courses() {
   const [manageCourse, setManageCourse] = useState<Course | null>(null);
   const [filterTag, setFilterTag] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [pendingDeleteCourse, setPendingDeleteCourse] = useState<Course | null>(null);
+  const [pendingDeleteMaterial, setPendingDeleteMaterial] = useState<Material | null>(null);
 
   const [docReqsByCourse, setDocReqsByCourse] = useState<Record<string, DocRequirement[]>>({});
 
@@ -247,9 +250,10 @@ export default function Courses() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this course?")) return;
     const { error } = await supabase.from("courses").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
+    setPendingDeleteCourse(null);
+    toast.success("Course deleted");
     load();
   };
 
@@ -267,10 +271,10 @@ export default function Courses() {
   };
 
   const handleDeleteMaterial = async (m: Material) => {
-    if (!confirm(`Remove "${m.file_name}"?`)) return;
     await supabase.storage.from("course-materials").remove([m.file_path]);
     const { error } = await supabase.from("course_materials").delete().eq("id", m.id);
     if (error) { toast.error(error.message); return; }
+    setPendingDeleteMaterial(null);
     toast.success("Removed");
     load();
   };
@@ -550,7 +554,7 @@ export default function Courses() {
                       <Button size="icon" variant="ghost" onClick={() => openEdit(c)} title="Edit">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleDelete(c.id)} title="Delete">
+                      <Button size="icon" variant="ghost" onClick={() => setPendingDeleteCourse(c)} title="Delete" aria-label={`Delete ${c.title}`}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -613,7 +617,7 @@ export default function Courses() {
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDownload(m)}>
                           <Download className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteMaterial(m)}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPendingDeleteMaterial(m)} aria-label={`Remove ${m.file_name}`}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </li>
@@ -624,6 +628,22 @@ export default function Courses() {
             )}
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={!!pendingDeleteCourse}
+          onOpenChange={(o) => !o && setPendingDeleteCourse(null)}
+          title="Delete this course?"
+          description={`"${pendingDeleteCourse?.title}" will be permanently removed — along with every batch created under it and their student enrollment records. This cannot be undone.`}
+          onConfirm={() => pendingDeleteCourse && handleDelete(pendingDeleteCourse.id)}
+        />
+        <ConfirmDialog
+          open={!!pendingDeleteMaterial}
+          onOpenChange={(o) => !o && setPendingDeleteMaterial(null)}
+          title="Remove this material?"
+          description={`"${pendingDeleteMaterial?.file_name}" will be permanently removed.`}
+          confirmLabel="Remove"
+          onConfirm={() => pendingDeleteMaterial && handleDeleteMaterial(pendingDeleteMaterial)}
+        />
       </div>
     </AppLayout>
   );
