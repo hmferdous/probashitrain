@@ -18,6 +18,7 @@ import {
   UserPlus, Copy, Check, Trash2, GitBranch, ShieldCheck, GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import ListSkeleton from "@/components/ListSkeleton";
 
 interface CenterUser {
   user_id: string;
@@ -88,6 +89,7 @@ export default function UserManagement() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState<"center_admin" | "instructor">("instructor");
   const [inviteBranches, setInviteBranches] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -128,6 +130,7 @@ export default function UserManagement() {
 
     setBranches(branchData ?? []);
     setInvites(getStoredInvites(center.id));
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, [center]);
@@ -290,6 +293,9 @@ export default function UserManagement() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Active users ({users.length})
           </h2>
+          {loading ? (
+            <ListSkeleton />
+          ) : (
           <Card className="divide-y">
             {users.length === 0 && (
               <div className="p-8 text-center text-muted-foreground text-sm">No users found.</div>
@@ -350,6 +356,7 @@ export default function UserManagement() {
               );
             })}
           </Card>
+          )}
         </div>
 
         {/* Pending invites */}

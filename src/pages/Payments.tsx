@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
+import ListSkeleton from "@/components/ListSkeleton";
 
 type Method = "cash" | "ami_probashi" | "bank" | "mobile_banking" | "other";
 const METHOD_LABEL: Record<Method, string> = {
@@ -58,6 +59,7 @@ export default function Payments() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "ami_probashi" | "manual">("all");
   const [openPay, setOpenPay] = useState<Row | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -90,6 +92,7 @@ export default function Payments() {
       payments: byEnr[e.id] ?? [],
     }));
     setRows(built);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -147,7 +150,9 @@ export default function Payments() {
           </Select>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ListSkeleton />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={rows.length === 0 ? Wallet : Search}
             message={rows.length === 0 ? "No enrolled students yet." : "No matches for your search."}

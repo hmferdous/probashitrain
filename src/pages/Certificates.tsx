@@ -22,6 +22,8 @@ import {
   CUSTOM_BUILDER_ID,
 } from "@/lib/certificateTemplates";
 import CertificateBuilder from "@/components/CertificateBuilder";
+import ListSkeleton from "@/components/ListSkeleton";
+import EmptyState from "@/components/EmptyState";
 
 export default function Certificates() {
   const { center } = useAuth();
@@ -30,6 +32,7 @@ export default function Certificates() {
   const [batches, setBatches] = useState<any[]>([]);
   const [batchTemplates, setBatchTemplates] = useState<Record<string, string>>({});
   const [builderExists, setBuilderExists] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const certificatesLocked = plan.locked.certificates;
   const customLocked = plan.locked.customCertificate;
@@ -55,6 +58,7 @@ export default function Certificates() {
       const map: Record<string, string> = {};
       (bs ?? []).forEach((b: any) => (map[b.id] = getBatchTemplateId(b.id)));
       setBatchTemplates(map);
+      setLoading(false);
     })();
   }, [center]);
 
@@ -94,11 +98,10 @@ export default function Certificates() {
 
           {/* ISSUED */}
           <TabsContent value="issued" className="mt-6">
-            {items.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Award className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No certificates issued yet.</p>
-              </Card>
+            {loading ? (
+              <ListSkeleton variant="cards" />
+            ) : items.length === 0 ? (
+              <EmptyState icon={Award} message="No certificates issued yet." />
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {items.map((it) => (

@@ -25,6 +25,7 @@ import { BATCH_STATUS_CONFIG, type BatchStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
+import ListSkeleton from "@/components/ListSkeleton";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -96,6 +97,7 @@ export default function Batches() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [startDate, setStartDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
   const [endDate, setEndDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -127,6 +129,7 @@ export default function Batches() {
     setBatches(batchList);
     setCourses((c.data as any) ?? []);
     setBranches((br.data as any) ?? []);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -570,7 +573,9 @@ export default function Batches() {
             </Dialog>
           }
         />
-        {courses.length === 0 ? (
+        {loading ? (
+          <ListSkeleton variant="cards" />
+        ) : courses.length === 0 ? (
           <EmptyState icon={CalendarDays} message="Create courses first, then add batches under them." />
         ) : batches.length === 0 ? (
           <EmptyState icon={CalendarDays} message="No batches yet." />

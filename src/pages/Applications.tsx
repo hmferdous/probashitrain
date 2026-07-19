@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Smartphone, Check, X, Sparkles, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import ListSkeleton from "@/components/ListSkeleton";
 
 const MOCK_NAMES = [
   { name: "Md. Rahim Uddin", phone: "+8801712345001", nid: "1990123456789" },
@@ -23,6 +24,7 @@ export default function Applications() {
   const [batches, setBatches] = useState<any[]>([]);
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [shortlistedBatchId, setShortlistedBatchId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -40,6 +42,7 @@ export default function Applications() {
       .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
     setEnrollments(e ?? []);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -97,7 +100,9 @@ export default function Applications() {
             </Link>
           </div>
         )}
-        {enrollments.length === 0 ? (
+        {loading ? (
+          <ListSkeleton />
+        ) : enrollments.length === 0 ? (
           <Card className="p-12 text-center">
             <Smartphone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground mb-2">No pending applications.</p>

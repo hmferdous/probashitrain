@@ -12,8 +12,10 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
-import { Plus, Users, Mail, Phone, ChevronRight, Lock, Sparkles } from "lucide-react";
+import { Plus, Users, Mail, Phone, ChevronRight, Lock, Sparkles, Search } from "lucide-react";
 import { toast } from "sonner";
+import ListSkeleton from "@/components/ListSkeleton";
+import EmptyState from "@/components/EmptyState";
 
 interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; guardian_number: string | null; }
 
@@ -23,11 +25,13 @@ export default function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
     const { data } = await supabase.from("students").select("*").eq("center_id", center.id).order("created_at", { ascending: false });
     setStudents(data ?? []);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -136,12 +140,17 @@ export default function Students() {
             )}
           </Card>
         )}
-        <Input placeholder="Search by name, phone, email…" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4 max-w-md" />
-        {filtered.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">{students.length === 0 ? "No students yet." : "No matches."}</p>
-          </Card>
+        <div className="relative mb-4 max-w-md">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search by name, phone, email…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        {loading ? (
+          <ListSkeleton />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            message={students.length === 0 ? "No students yet." : "No matches for your search."}
+          />
         ) : (
           <Card className="divide-y">
             {filtered.map((s) => (

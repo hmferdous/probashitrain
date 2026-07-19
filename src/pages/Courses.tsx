@@ -21,6 +21,8 @@ import {
 import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ListSkeleton from "@/components/ListSkeleton";
+import EmptyState from "@/components/EmptyState";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -82,6 +84,7 @@ export default function Courses() {
   const [search, setSearch] = useState("");
   const [pendingDeleteCourse, setPendingDeleteCourse] = useState<Course | null>(null);
   const [pendingDeleteMaterial, setPendingDeleteMaterial] = useState<Material | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [docReqsByCourse, setDocReqsByCourse] = useState<Record<string, DocRequirement[]>>({});
 
@@ -120,6 +123,7 @@ export default function Courses() {
     } else {
       setDocReqsByCourse({});
     }
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -530,15 +534,12 @@ export default function Courses() {
           </div>
         )}
 
-        {courses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No courses yet. Click “Add course” to create your first one.</p>
-          </Card>
+        {loading ? (
+          <ListSkeleton variant="cards" />
+        ) : courses.length === 0 ? (
+          <EmptyState icon={BookOpen} message="No courses yet. Click “Add course” to create your first one." />
         ) : visibleCourses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground">No courses match your filters.</p>
-          </Card>
+          <EmptyState icon={BookOpen} message="No courses match your filters." />
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleCourses.map((c) => {
