@@ -27,6 +27,7 @@ import EmptyState from "@/components/EmptyState";
 import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
 import ListSkeleton from "@/components/ListSkeleton";
 import { friendlyError } from "@/lib/errors";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -76,6 +77,7 @@ export default function Batches() {
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BatchStatus | "all">("all");
+  const [pendingPublish, setPendingPublish] = useState<Batch | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
@@ -653,11 +655,17 @@ export default function Batches() {
                   <p className="text-xs text-muted-foreground mt-1">Applications close {format(new Date(b.application_deadline), "MMM d, yyyy")}</p>
                 )}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Switch checked={b.published_to_ami_probashi} onCheckedChange={() => togglePublish(b)} />
-                    <Smartphone className="h-3.5 w-3.5" />
-                    Ami Probashi
-                  </label>
+                  {b.published_to_ami_probashi ? (
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Switch checked onCheckedChange={() => togglePublish(b)} />
+                      <Smartphone className="h-3.5 w-3.5 text-success" />
+                      <span className="text-success font-medium">Live on Ami Probashi</span>
+                    </label>
+                  ) : (
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPendingPublish(b)}>
+                      <Smartphone className="h-3.5 w-3.5" /> Publish to Ami Probashi
+                    </Button>
+                  )}
                   <Link to={`/app/batches/${b.id}`} className="text-sm text-primary font-medium flex items-center gap-1 hover:underline">
                     Manage <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
@@ -667,6 +675,19 @@ export default function Batches() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingPublish}
+        onOpenChange={(o) => !o && setPendingPublish(null)}
+        title="Publish this batch to Ami Probashi?"
+        description={`"${pendingPublish?.name}" will become visible to Ami Probashi's app users and start accepting applications. You can unpublish it again at any time.`}
+        confirmLabel="Publish"
+        variant="default"
+        onConfirm={() => {
+          if (pendingPublish) togglePublish(pendingPublish);
+          setPendingPublish(null);
+        }}
+      />
     </AppLayout>
   );
 }
