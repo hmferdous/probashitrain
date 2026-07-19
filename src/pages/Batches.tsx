@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
@@ -17,7 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -74,6 +74,8 @@ export default function Batches() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BatchStatus | "all">("all");
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
@@ -133,6 +135,15 @@ export default function Batches() {
     setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
+
+  const filteredBatches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return batches.filter((b) => {
+      if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (!q) return true;
+      return b.name.toLowerCase().includes(q) || (b.courses?.title ?? "").toLowerCase().includes(q);
+    });
+  }, [batches, search, statusFilter]);
 
   const toggleBranch = (id: string, checked: boolean) => {
     setBranchCaps((prev) => {
@@ -574,15 +585,44 @@ export default function Batches() {
             </Dialog>
           }
         />
+        {!loading && batches.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search batches or courses…"
+                className="pl-8 h-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as BatchStatus | "all")}>
+              <SelectTrigger className="h-9 w-40"><SelectValue placeholder="All statuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(BATCH_STATUS_CONFIG) as BatchStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>{BATCH_STATUS_CONFIG[s].label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(search || statusFilter !== "all") && (
+              <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
         {loading ? (
           <ListSkeleton variant="cards" />
         ) : courses.length === 0 ? (
           <EmptyState icon={CalendarDays} message="Create courses first, then add batches under them." />
         ) : batches.length === 0 ? (
           <EmptyState icon={CalendarDays} message="No batches yet." />
+        ) : filteredBatches.length === 0 ? (
+          <EmptyState icon={Search} message="No batches match your search." />
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
-            {batches.map((b) => (
+            {filteredBatches.map((b) => (
               <Card key={b.id} className="p-5 hover:shadow-elegant transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div>
