@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlan } from "@/lib/plan";
 import { useAuth } from "@/lib/auth";
@@ -733,6 +733,7 @@ function StudentDetailDialog({
   userId: string;
   onClose: () => void;
 }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"comments" | "payment">("comments");
   const [comments, setComments] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -801,8 +802,8 @@ function StudentDetailDialog({
     if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Payment recorded · ${invoice_no}`);
     setPayAmount(""); setPayNotes("");
-    loadData();
-    if (pay?.id) window.open(`/app/payments/${pay.id}`, "_blank");
+    if (pay?.id) navigate(`/app/payments/${pay.id}`);
+    else loadData();
   };
 
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);

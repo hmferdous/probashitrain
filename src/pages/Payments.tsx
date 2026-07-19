@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
@@ -229,6 +229,7 @@ function RecordPaymentDialog({
 }: { row: Row | null; centerId: string; onClose: () => void; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [method, setMethod] = useState<Method>("cash");
+  const navigate = useNavigate();
   if (!row) return null;
   const due = Math.max(0, row.course_price - row.paid);
 
@@ -253,8 +254,8 @@ function RecordPaymentDialog({
     if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Payment recorded · Invoice ${invoice_no}`);
     onSaved();
-    if (method === "cash" || method === "bank" || method === "mobile_banking" || method === "other") {
-      window.open(`/app/payments/${pay.id}`, "_blank");
+    if (pay?.id && (method === "cash" || method === "bank" || method === "mobile_banking" || method === "other")) {
+      navigate(`/app/payments/${pay.id}`);
     }
   };
 
