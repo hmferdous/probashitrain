@@ -278,7 +278,10 @@ export default function UserManagement() {
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    An invite link will be generated. Share it with the person — they'll register and land directly in your center.
+                    An invite link will be generated for {inviteName.trim() || "this person"} to share.
+                  </p>
+                  <p className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md px-2.5 py-2">
+                    Demo only — registration via invite link isn't wired up yet, so the recipient won't be able to join with this link.
                   </p>
                   <Button className="w-full" onClick={sendInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>
                     Generate invite link
@@ -363,9 +366,12 @@ export default function UserManagement() {
         {/* Pending invites */}
         {invites.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-1">
               Pending invites ({invites.length})
             </h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              Demo only — these links don't work for recipients yet.
+            </p>
             <Card className="divide-y">
               {invites.map((inv) => {
                 const invBranchNames = (inv.branch_ids ?? []).map(bid => branches.find(b => b.id === bid)?.name_en).filter(Boolean);
