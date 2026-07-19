@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 interface CenterUser {
   user_id: string;
@@ -171,7 +172,7 @@ export default function UserManagement() {
   const changeRole = async (userId: string, role: "center_admin" | "instructor") => {
     if (!center) return;
     const { error } = await supabase.from("user_roles").update({ role }).eq("user_id", userId).eq("center_id", center.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Role updated");
     load();
   };

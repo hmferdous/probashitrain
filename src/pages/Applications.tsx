@@ -10,6 +10,7 @@ import { Smartphone, Check, X, Sparkles, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 const MOCK_NAMES = [
   { name: "Md. Rahim Uddin", phone: "+8801712345001", nid: "1990123456789" },
@@ -68,7 +69,7 @@ export default function Applications() {
     const { error } = await supabase.from("enrollments").update({
       pipeline_status: accept ? "shortlisted" : "rejected",
     }).eq("id", enrId);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     if (accept) {
       setShortlistedBatchId(batchId ?? null);
       toast.success("Shortlisted — student moved to batch pipeline");

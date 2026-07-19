@@ -16,6 +16,7 @@ import { Plus, Users, Mail, Phone, ChevronRight, Lock, Sparkles, Search } from "
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
+import { friendlyError } from "@/lib/errors";
 
 interface Student { id: string; full_name: string; phone: string | null; email: string | null; nid: string | null; address: string | null; guardian_number: string | null; }
 
@@ -63,7 +64,7 @@ export default function Students() {
       address: String(fd.get("address") || "").trim() || null,
       guardian_number: String(fd.get("guardian_number") || "").trim() || null,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Student added");
     setOpen(false);
     load();

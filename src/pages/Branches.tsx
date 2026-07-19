@@ -14,6 +14,7 @@ import {
 import { Plus, Building2, MapPin, Phone, Mail, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { friendlyError } from "@/lib/errors";
 
 interface Branch {
   id: string;
@@ -76,7 +77,7 @@ export default function Branches() {
     const { error } = editing
       ? await supabase.from("branches").update(payload).eq("id", editing.id)
       : await supabase.from("branches").insert(payload);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(editing ? "Branch updated" : "Branch created");
     setOpen(false); setEditing(null);
     load();
@@ -85,7 +86,7 @@ export default function Branches() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this branch?")) return;
     const { error } = await supabase.from("branches").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Branch deleted");
     load();
   };

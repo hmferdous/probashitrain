@@ -23,6 +23,7 @@ import { PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 type Method = "cash" | "ami_probashi" | "bank" | "mobile_banking" | "other";
 const METHOD_LABEL: Record<Method, string> = {
@@ -249,7 +250,7 @@ function RecordPaymentDialog({
       invoice_no,
     }).select().single();
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Payment recorded · Invoice ${invoice_no}`);
     onSaved();
     if (method === "cash" || method === "bank" || method === "mobile_banking" || method === "other") {

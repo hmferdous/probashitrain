@@ -26,6 +26,7 @@ import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
 import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -251,12 +252,12 @@ export default function Batches() {
       application_deadline: String(fd.get("application_deadline") || "") || null,
       fee_collection: feeCollection,
     } as any).select().single();
-    if (error || !created) { toast.error(error?.message || "Failed to create"); return; }
+    if (error || !created) { toast.error(friendlyError(error, "Failed to create batch")); return; }
     const links = selectedBranchIds.map((bid) => ({
       batch_id: created.id, branch_id: bid, capacity: branchCaps[bid],
     }));
     const { error: linkErr } = await supabase.from("batch_branches").insert(links);
-    if (linkErr) { toast.error(linkErr.message); return; }
+    if (linkErr) { toast.error(friendlyError(linkErr)); return; }
     if (docRequirements.length) {
       await supabase.from("batch_document_requirements").insert(
         docRequirements.map((d) => ({ batch_id: created.id, doc_type: d.doc_type, mandatory: d.mandatory }))
@@ -278,7 +279,7 @@ export default function Batches() {
     if (next && b.status === "draft") updates.status = "published";
     if (next) updates.published_at = new Date().toISOString();
     const { error } = await supabase.from("batches").update(updates).eq("id", b.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(next ? "Published to Ami Probashi" : "Unpublished");
     load();
   };
