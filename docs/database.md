@@ -422,7 +422,7 @@ SELECT public.get_user_center(auth.uid());
 ```
 
 ### `create_training_center(_name text, _address text, _phone text) → training_centers`
-Atomic onboarding RPC called from `Onboarding.tsx`. Creates the center row and returns it.
+Atomic onboarding RPC called from `Onboarding.tsx`. Creates the center row, assigns `center_admin`, and **also inserts a default branch** ("Main Branch" / "মূল শাখা") pre-filled from the center's phone/address and the admin's auth email — batch creation hard-requires at least one branch, so this removes that as a hidden manual step for new centers. The branch is fully editable afterwards from Branches management. Migration `20260715090000` also backfilled a default branch for any pre-existing center that had none.
 
 ### `generate_invoice_no() → text`
 Returns a unique invoice number: `INV-YYYYMM-000XXX` using a Postgres sequence (`invoice_seq`).

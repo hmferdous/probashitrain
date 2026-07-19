@@ -28,6 +28,7 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
   1. Inserts a `training_centers` row
   2. Updates `profiles.center_id`
   3. Inserts a `user_roles` row with `role = 'center_admin'`
+  4. Inserts a default "Main Branch" branch, pre-filled from the center's phone/address and the admin's email — batches require a branch, so new centers don't hit that requirement unprepared
 - After completing, user lands on `/app` (Dashboard)
 
 ---
