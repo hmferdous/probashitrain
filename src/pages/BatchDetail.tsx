@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { PIPELINE_STATUS_CONFIG, type PipelineStatus, PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -319,7 +320,6 @@ export default function BatchDetail() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="unset">Anyone</SelectItem>
-                          <SelectItem value="any">Any</SelectItem>
                           <SelectItem value="male">Male</SelectItem>
                           <SelectItem value="female">Female</SelectItem>
                         </SelectContent>
@@ -740,6 +740,7 @@ function StudentDetailDialog({
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
+  const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null);
 
   const loadData = async () => {
     const [{ data: c }, { data: p }] = await Promise.all([
@@ -775,7 +776,9 @@ function StudentDetailDialog({
   };
 
   const deleteComment = async (commentId: string) => {
-    await (supabase.from as any)("enrollment_comments").delete().eq("id", commentId);
+    const { error } = await (supabase.from as any)("enrollment_comments").delete().eq("id", commentId);
+    setPendingDeleteCommentId(null);
+    if (error) { toast.error(error.message); return; }
     loadData();
   };
 
@@ -806,6 +809,7 @@ function StudentDetailDialog({
   const payStatus: FeePaymentStatus = totalPaid === 0 ? "Unpaid" : outstanding <= 0 ? "Paid" : "Partial";
 
   return (
+    <>
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
@@ -857,7 +861,11 @@ function StudentDetailDialog({
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs text-muted-foreground">{format(new Date(c.created_at), "MMM d, yyyy · h:mm a")}</span>
                         {c.author_id === userId && (
-                          <button onClick={() => deleteComment(c.id)} className="text-xs text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setPendingDeleteCommentId(c.id)}
+                            className="text-xs text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                            aria-label="Delete comment"
+                          >
                             Delete
                           </button>
                         )}
@@ -959,6 +967,14 @@ function StudentDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={!!pendingDeleteCommentId}
+      onOpenChange={(o) => !o && setPendingDeleteCommentId(null)}
+      title="Delete this comment?"
+      description="This comment will be permanently removed. This cannot be undone."
+      onConfirm={() => pendingDeleteCommentId && deleteComment(pendingDeleteCommentId)}
+    />
+    </>
   );
 }
 

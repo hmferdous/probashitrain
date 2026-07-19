@@ -385,7 +385,6 @@ export default function Batches() {
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="unset">No restriction</SelectItem>
-                                  <SelectItem value="any">Any</SelectItem>
                                   <SelectItem value="male">Male</SelectItem>
                                   <SelectItem value="female">Female</SelectItem>
                                 </SelectContent>
