@@ -21,6 +21,9 @@ import {
 import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ListSkeleton from "@/components/ListSkeleton";
+import EmptyState from "@/components/EmptyState";
+import { friendlyError } from "@/lib/errors";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -82,6 +85,7 @@ export default function Courses() {
   const [search, setSearch] = useState("");
   const [pendingDeleteCourse, setPendingDeleteCourse] = useState<Course | null>(null);
   const [pendingDeleteMaterial, setPendingDeleteMaterial] = useState<Material | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [docReqsByCourse, setDocReqsByCourse] = useState<Record<string, DocRequirement[]>>({});
 
@@ -120,6 +124,7 @@ export default function Courses() {
     } else {
       setDocReqsByCourse({});
     }
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -179,14 +184,14 @@ export default function Courses() {
       const { error: upErr } = await supabase.storage
         .from("course-materials")
         .upload(path, f, { contentType: f.type || undefined });
-      if (upErr) { toast.error(`Upload failed: ${f.name} — ${upErr.message}`); continue; }
+      if (upErr) { toast.error(`Upload failed: ${f.name} — ${friendlyError(upErr)}`); continue; }
       const { error: insErr } = await supabase.from("course_materials").insert({
         course_id: courseId, center_id: center.id,
         file_name: f.name, file_path: path,
         mime_type: f.type || null, size_bytes: f.size,
         uploaded_by: user?.id ?? null,
       });
-      if (insErr) toast.error(`Saved file but record failed: ${insErr.message}`);
+      if (insErr) toast.error(`Saved file but record failed: ${friendlyError(insErr)}`);
     }
   };
 
@@ -221,7 +226,7 @@ export default function Courses() {
 
     if (editing) {
       const { error } = await supabase.from("courses").update(payload as any).eq("id", editing.id);
-      if (error) { setSubmitting(false); toast.error(error.message); return; }
+      if (error) { setSubmitting(false); toast.error(friendlyError(error)); return; }
       await saveDocRequirements(editing.id);
       if (pendingFiles.length) await uploadFilesForCourse(editing.id, pendingFiles);
       setSubmitting(false);
@@ -240,7 +245,7 @@ export default function Courses() {
       center_id: center.id,
       ...payload,
     } as any).select().single();
-    if (error || !created) { setSubmitting(false); toast.error(error?.message || "Failed"); return; }
+    if (error || !created) { setSubmitting(false); toast.error(friendlyError(error, "Failed to create course")); return; }
     await saveDocRequirements(created.id);
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
     setSubmitting(false);
@@ -251,7 +256,7 @@ export default function Courses() {
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("courses").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     setPendingDeleteCourse(null);
     toast.success("Course deleted");
     load();
@@ -273,7 +278,7 @@ export default function Courses() {
   const handleDeleteMaterial = async (m: Material) => {
     await supabase.storage.from("course-materials").remove([m.file_path]);
     const { error } = await supabase.from("course_materials").delete().eq("id", m.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     setPendingDeleteMaterial(null);
     toast.success("Removed");
     load();
@@ -283,7 +288,7 @@ export default function Courses() {
     const { data, error } = await supabase.storage
       .from("course-materials")
       .createSignedUrl(m.file_path, 60);
-    if (error || !data) { toast.error(error?.message || "Download failed"); return; }
+    if (error || !data) { toast.error(friendlyError(error, "Download failed")); return; }
     window.open(data.signedUrl, "_blank");
   };
 
@@ -530,15 +535,12 @@ export default function Courses() {
           </div>
         )}
 
-        {courses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No courses yet. Click “Add course” to create your first one.</p>
-          </Card>
+        {loading ? (
+          <ListSkeleton variant="cards" />
+        ) : courses.length === 0 ? (
+          <EmptyState icon={BookOpen} message="No courses yet. Click “Add course” to create your first one." />
         ) : visibleCourses.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground">No courses match your filters.</p>
-          </Card>
+          <EmptyState icon={BookOpen} message="No courses match your filters." />
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleCourses.map((c) => {

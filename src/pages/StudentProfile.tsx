@@ -21,6 +21,7 @@ import {
   MapPin, Calendar, GraduationCap, Briefcase, User, Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { friendlyError } from "@/lib/errors";
 
 type Student = {
   id: string; full_name: string; phone: string | null; email: string | null;
@@ -115,7 +116,7 @@ export default function StudentProfile() {
       emergency_contact_phone: String(fd.get("emergency_contact_phone") || "").trim() || null,
     };
     const { error } = await supabase.from("students").update(payload).eq("id", student.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyError(error));
     toast.success("Profile updated");
     setEditing(false);
     load();
@@ -136,7 +137,7 @@ export default function StudentProfile() {
     const up = await supabase.storage.from("student-docs").upload(path, file, {
       contentType: file.type || undefined,
     });
-    if (up.error) { setUploading(false); return toast.error(up.error.message); }
+    if (up.error) { setUploading(false); return toast.error(friendlyError(up.error)); }
     const { error } = await supabase.from("student_documents").insert({
       student_id: student.id,
       center_id: center.id,
@@ -149,7 +150,7 @@ export default function StudentProfile() {
       uploaded_by: user?.id ?? null,
     });
     setUploading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyError(error));
     toast.success("Document uploaded");
     setUploadOpen(false);
     load();
@@ -174,7 +175,7 @@ export default function StudentProfile() {
     if (!confirm(`Delete "${doc.file_name}"?`)) return;
     await supabase.storage.from("student-docs").remove([doc.file_path]);
     const { error } = await supabase.from("student_documents").delete().eq("id", doc.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyError(error));
     toast.success("Deleted");
     load();
   };

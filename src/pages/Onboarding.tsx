@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { friendlyError } from "@/lib/errors";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -38,7 +39,7 @@ export default function Onboarding() {
       _phone: parsed.data.phone ?? "",
       _address: parsed.data.address ?? "",
     });
-    if (error) { setLoading(false); toast.error(error.message); return; }
+    if (error) { setLoading(false); toast.error(friendlyError(error)); return; }
     await refresh();
     setLoading(false);
     toast.success("Training center created!");

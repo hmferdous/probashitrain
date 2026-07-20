@@ -10,6 +10,7 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel = "Delete",
+  variant = "destructive",
   onConfirm,
 }: {
   open: boolean;
@@ -17,6 +18,8 @@ export default function ConfirmDialog({
   title: string;
   description: string;
   confirmLabel?: string;
+  /** Visual weight of the confirm button — "destructive" for delete-style actions, "default" for neutral/positive ones. */
+  variant?: "destructive" | "default";
   onConfirm: () => void;
 }) {
   return (
@@ -30,7 +33,7 @@ export default function ConfirmDialog({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={buttonVariants({ variant: "destructive" })}
+            className={buttonVariants({ variant })}
           >
             {confirmLabel}
           </AlertDialogAction>

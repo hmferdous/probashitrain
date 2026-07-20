@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
@@ -17,7 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -25,6 +25,9 @@ import { BATCH_STATUS_CONFIG, type BatchStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
+import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -72,6 +75,9 @@ export default function Batches() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BatchStatus | "all">("all");
+  const [pendingPublish, setPendingPublish] = useState<Batch | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
@@ -96,6 +102,7 @@ export default function Batches() {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [startDate, setStartDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
   const [endDate, setEndDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -127,8 +134,18 @@ export default function Batches() {
     setBatches(batchList);
     setCourses((c.data as any) ?? []);
     setBranches((br.data as any) ?? []);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
+
+  const filteredBatches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return batches.filter((b) => {
+      if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (!q) return true;
+      return b.name.toLowerCase().includes(q) || (b.courses?.title ?? "").toLowerCase().includes(q);
+    });
+  }, [batches, search, statusFilter]);
 
   const toggleBranch = (id: string, checked: boolean) => {
     setBranchCaps((prev) => {
@@ -248,12 +265,12 @@ export default function Batches() {
       application_deadline: String(fd.get("application_deadline") || "") || null,
       fee_collection: feeCollection,
     } as any).select().single();
-    if (error || !created) { toast.error(error?.message || "Failed to create"); return; }
+    if (error || !created) { toast.error(friendlyError(error, "Failed to create batch")); return; }
     const links = selectedBranchIds.map((bid) => ({
       batch_id: created.id, branch_id: bid, capacity: branchCaps[bid],
     }));
     const { error: linkErr } = await supabase.from("batch_branches").insert(links);
-    if (linkErr) { toast.error(linkErr.message); return; }
+    if (linkErr) { toast.error(friendlyError(linkErr)); return; }
     if (docRequirements.length) {
       await supabase.from("batch_document_requirements").insert(
         docRequirements.map((d) => ({ batch_id: created.id, doc_type: d.doc_type, mandatory: d.mandatory }))
@@ -275,7 +292,7 @@ export default function Batches() {
     if (next && b.status === "draft") updates.status = "published";
     if (next) updates.published_at = new Date().toISOString();
     const { error } = await supabase.from("batches").update(updates).eq("id", b.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(next ? "Published to Ami Probashi" : "Unpublished");
     load();
   };
@@ -570,13 +587,44 @@ export default function Batches() {
             </Dialog>
           }
         />
-        {courses.length === 0 ? (
+        {!loading && batches.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search batches or courses…"
+                className="pl-8 h-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as BatchStatus | "all")}>
+              <SelectTrigger className="h-9 w-40"><SelectValue placeholder="All statuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(BATCH_STATUS_CONFIG) as BatchStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>{BATCH_STATUS_CONFIG[s].label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(search || statusFilter !== "all") && (
+              <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
+        {loading ? (
+          <ListSkeleton variant="cards" />
+        ) : courses.length === 0 ? (
           <EmptyState icon={CalendarDays} message="Create courses first, then add batches under them." />
         ) : batches.length === 0 ? (
           <EmptyState icon={CalendarDays} message="No batches yet." />
+        ) : filteredBatches.length === 0 ? (
+          <EmptyState icon={Search} message="No batches match your search." />
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
-            {batches.map((b) => (
+            {filteredBatches.map((b) => (
               <Card key={b.id} className="p-5 hover:shadow-elegant transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -607,11 +655,17 @@ export default function Batches() {
                   <p className="text-xs text-muted-foreground mt-1">Applications close {format(new Date(b.application_deadline), "MMM d, yyyy")}</p>
                 )}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Switch checked={b.published_to_ami_probashi} onCheckedChange={() => togglePublish(b)} />
-                    <Smartphone className="h-3.5 w-3.5" />
-                    Ami Probashi
-                  </label>
+                  {b.published_to_ami_probashi ? (
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Switch checked onCheckedChange={() => togglePublish(b)} />
+                      <Smartphone className="h-3.5 w-3.5 text-success" />
+                      <span className="text-success font-medium">Live on Ami Probashi</span>
+                    </label>
+                  ) : (
+                    <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPendingPublish(b)}>
+                      <Smartphone className="h-3.5 w-3.5" /> Publish to Ami Probashi
+                    </Button>
+                  )}
                   <Link to={`/app/batches/${b.id}`} className="text-sm text-primary font-medium flex items-center gap-1 hover:underline">
                     Manage <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
@@ -621,6 +675,19 @@ export default function Batches() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingPublish}
+        onOpenChange={(o) => !o && setPendingPublish(null)}
+        title="Publish this batch to Ami Probashi?"
+        description={`"${pendingPublish?.name}" will become visible to Ami Probashi's app users and start accepting applications. You can unpublish it again at any time.`}
+        confirmLabel="Publish"
+        variant="default"
+        onConfirm={() => {
+          if (pendingPublish) togglePublish(pendingPublish);
+          setPendingPublish(null);
+        }}
+      />
     </AppLayout>
   );
 }

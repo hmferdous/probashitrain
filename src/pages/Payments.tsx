@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import AppLayout from "@/components/AppLayout";
@@ -22,6 +22,8 @@ import { format } from "date-fns";
 import { PAYMENT_STATUS_CONFIG, type FeePaymentStatus } from "@/lib/statusColors";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
+import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 type Method = "cash" | "ami_probashi" | "bank" | "mobile_banking" | "other";
 const METHOD_LABEL: Record<Method, string> = {
@@ -58,6 +60,7 @@ export default function Payments() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "ami_probashi" | "manual">("all");
   const [openPay, setOpenPay] = useState<Row | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -90,6 +93,7 @@ export default function Payments() {
       payments: byEnr[e.id] ?? [],
     }));
     setRows(built);
+    setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
 
@@ -147,7 +151,9 @@ export default function Payments() {
           </Select>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ListSkeleton />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={rows.length === 0 ? Wallet : Search}
             message={rows.length === 0 ? "No enrolled students yet." : "No matches for your search."}
@@ -223,6 +229,7 @@ function RecordPaymentDialog({
 }: { row: Row | null; centerId: string; onClose: () => void; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [method, setMethod] = useState<Method>("cash");
+  const navigate = useNavigate();
   if (!row) return null;
   const due = Math.max(0, row.course_price - row.paid);
 
@@ -244,11 +251,11 @@ function RecordPaymentDialog({
       invoice_no,
     }).select().single();
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Payment recorded · Invoice ${invoice_no}`);
     onSaved();
-    if (method === "cash" || method === "bank" || method === "mobile_banking" || method === "other") {
-      window.open(`/app/payments/${pay.id}`, "_blank");
+    if (pay?.id && (method === "cash" || method === "bank" || method === "mobile_banking" || method === "other")) {
+      navigate(`/app/payments/${pay.id}`);
     }
   };
 

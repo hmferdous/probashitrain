@@ -18,6 +18,8 @@ import {
   UserPlus, Copy, Check, Trash2, GitBranch, ShieldCheck, GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import ListSkeleton from "@/components/ListSkeleton";
+import { friendlyError } from "@/lib/errors";
 
 interface CenterUser {
   user_id: string;
@@ -88,6 +90,7 @@ export default function UserManagement() {
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState<"center_admin" | "instructor">("instructor");
   const [inviteBranches, setInviteBranches] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!center) return;
@@ -128,6 +131,7 @@ export default function UserManagement() {
 
     setBranches(branchData ?? []);
     setInvites(getStoredInvites(center.id));
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, [center]);
@@ -168,7 +172,7 @@ export default function UserManagement() {
   const changeRole = async (userId: string, role: "center_admin" | "instructor") => {
     if (!center) return;
     const { error } = await supabase.from("user_roles").update({ role }).eq("user_id", userId).eq("center_id", center.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Role updated");
     load();
   };
@@ -274,7 +278,10 @@ export default function UserManagement() {
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    An invite link will be generated. Share it with the person — they'll register and land directly in your center.
+                    An invite link will be generated for {inviteName.trim() || "this person"} to share.
+                  </p>
+                  <p className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md px-2.5 py-2">
+                    Demo only — registration via invite link isn't wired up yet, so the recipient won't be able to join with this link.
                   </p>
                   <Button className="w-full" onClick={sendInvite} disabled={!inviteName.trim() || !inviteEmail.trim()}>
                     Generate invite link
@@ -290,6 +297,9 @@ export default function UserManagement() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
             Active users ({users.length})
           </h2>
+          {loading ? (
+            <ListSkeleton />
+          ) : (
           <Card className="divide-y">
             {users.length === 0 && (
               <div className="p-8 text-center text-muted-foreground text-sm">No users found.</div>
@@ -350,14 +360,18 @@ export default function UserManagement() {
               );
             })}
           </Card>
+          )}
         </div>
 
         {/* Pending invites */}
         {invites.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-1">
               Pending invites ({invites.length})
             </h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              Demo only — these links don't work for recipients yet.
+            </p>
             <Card className="divide-y">
               {invites.map((inv) => {
                 const invBranchNames = (inv.branch_ids ?? []).map(bid => branches.find(b => b.id === bid)?.name_en).filter(Boolean);

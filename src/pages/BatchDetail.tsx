@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlan } from "@/lib/plan";
 import { useAuth } from "@/lib/auth";
@@ -29,6 +29,7 @@ import { PIPELINE_STATUS_CONFIG, type PipelineStatus, PAYMENT_STATUS_CONFIG, typ
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { friendlyError } from "@/lib/errors";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -123,7 +124,7 @@ export default function BatchDetail() {
     const updates: any = { pipeline_status: status };
     if (status === "certified") updates.certificate_issued_at = new Date().toISOString();
     const { error } = await supabase.from("enrollments").update(updates).eq("id", enr.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Moved to ${STATUS_CONFIG[status].label}`);
     load();
   };
@@ -133,7 +134,7 @@ export default function BatchDetail() {
     const { error } = await supabase.from("enrollments").insert({
       batch_id: id, student_id: pickStudent, source: "manual", pipeline_status: "applied",
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Student added");
     setOpenAdd(false); setPickStudent("");
     load();
@@ -163,11 +164,11 @@ export default function BatchDetail() {
       nid: String(fd.get("nid") || "").trim() || null,
       guardian_number: String(fd.get("guardian_number") || "").trim() || null,
     }).select().single();
-    if (error || !s) { toast.error(error?.message ?? "Failed"); return; }
+    if (error || !s) { toast.error(friendlyError(error, "Failed to add student")); return; }
     const { error: e2 } = await supabase.from("enrollments").insert({
       batch_id: id, student_id: s.id, source: "manual", pipeline_status: "applied",
     });
-    if (e2) { toast.error(e2.message); return; }
+    if (e2) { toast.error(friendlyError(e2)); return; }
     toast.success("Student admitted");
     setOpenNew(false);
     load();
@@ -181,7 +182,7 @@ export default function BatchDetail() {
       performance_score: Number(fd.get("score") || 0),
       performance_notes: String(fd.get("notes") || "").trim() || null,
     }).eq("id", openGrade.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Grade saved");
     setOpenGrade(null);
     load();
@@ -199,7 +200,7 @@ export default function BatchDetail() {
       jitsi_room: room,
       is_live: true,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success("Live session created");
     setOpenLive(false);
     load();
@@ -228,7 +229,7 @@ export default function BatchDetail() {
       application_deadline: String(fd.get("application_deadline") || "") || null,
       fee_collection: String(fd.get("fee_collection") || "manual"),
     } as any).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     await supabase.from("batch_document_requirements").delete().eq("batch_id", id);
     if (docRequirements.length > 0) {
       await supabase.from("batch_document_requirements").insert(
@@ -732,6 +733,7 @@ function StudentDetailDialog({
   userId: string;
   onClose: () => void;
 }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"comments" | "payment">("comments");
   const [comments, setComments] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -770,7 +772,7 @@ function StudentDetailDialog({
       content: text,
     });
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     setNewComment("");
     loadData();
   };
@@ -778,7 +780,7 @@ function StudentDetailDialog({
   const deleteComment = async (commentId: string) => {
     const { error } = await (supabase.from as any)("enrollment_comments").delete().eq("id", commentId);
     setPendingDeleteCommentId(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     loadData();
   };
 
@@ -797,11 +799,11 @@ function StudentDetailDialog({
       invoice_no,
     }).select().single();
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyError(error)); return; }
     toast.success(`Payment recorded · ${invoice_no}`);
     setPayAmount(""); setPayNotes("");
-    loadData();
-    if (pay?.id) window.open(`/app/payments/${pay.id}`, "_blank");
+    if (pay?.id) navigate(`/app/payments/${pay.id}`);
+    else loadData();
   };
 
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
@@ -1032,11 +1034,11 @@ function AttendanceSheet({ enrollments, onChange }: { enrollments: Enrollment[];
     let err: string | null = null;
     if (upserts.length) {
       const { error } = await supabase.from("attendance").upsert(upserts, { onConflict: "enrollment_id,session_date" });
-      if (error) err = error.message;
+      if (error) err = friendlyError(error);
     }
     for (const e of deletes) {
       const { error } = await supabase.from("attendance").delete().eq("enrollment_id", e.id).eq("session_date", date);
-      if (error) err = error.message;
+      if (error) err = friendlyError(error);
     }
     setSaving(false);
     if (err) { toast.error(err); return; }

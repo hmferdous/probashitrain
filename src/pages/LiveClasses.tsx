@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Video } from "lucide-react";
 import { format } from "date-fns";
+import ListSkeleton from "@/components/ListSkeleton";
+import EmptyState from "@/components/EmptyState";
 
 export default function LiveClasses() {
   const { center } = useAuth();
   const { plan } = usePlan();
   const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   if (plan.locked.liveClasses) {
     return (
@@ -36,6 +39,7 @@ export default function LiveClasses() {
         .eq("batches.center_id", center.id)
         .order("scheduled_at", { ascending: false });
       setSessions(data ?? []);
+      setLoading(false);
     })();
   }, [center]);
 
@@ -43,11 +47,10 @@ export default function LiveClasses() {
     <AppLayout>
       <div className="p-8 max-w-7xl mx-auto">
         <PageHeader title="Live Classes" description="All scheduled live sessions across your batches." />
-        {sessions.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Video className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No live sessions yet. Schedule one from a batch.</p>
-          </Card>
+        {loading ? (
+          <ListSkeleton />
+        ) : sessions.length === 0 ? (
+          <EmptyState icon={Video} message="No live sessions yet. Schedule one from a batch." />
         ) : (
           <div className="space-y-3">
             {sessions.map((s) => (
