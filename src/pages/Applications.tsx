@@ -6,9 +6,10 @@ import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, Check, X, Sparkles, ArrowRight } from "lucide-react";
+import { Smartphone, Check, X, Sparkles, ArrowRight, CalendarDays, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import ListSkeleton from "@/components/ListSkeleton";
 import { friendlyError } from "@/lib/errors";
 
@@ -26,6 +27,7 @@ export default function Applications() {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [shortlistedBatchId, setShortlistedBatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [branchNamesByBatch, setBranchNamesByBatch] = useState<Record<string, string[]>>({});
 
   const load = async () => {
     if (!center) return;
@@ -37,12 +39,35 @@ export default function Applications() {
     setBatches(b ?? []);
     const { data: e } = await supabase
       .from("enrollments")
-      .select("*, students(*), batches!inner(name, courses(title), center_id)")
+      .select("*, students(*), batches!inner(name, start_date, courses(title), center_id)")
       .eq("source", "ami_probashi")
       .eq("pipeline_status", "applied")
       .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
     setEnrollments(e ?? []);
+
+    // batch_branches has no FK to branches at the DB level, so PostgREST can't
+    // embed it — resolve the two steps manually (same pattern as user_roles -> profiles).
+    const batchIds = Array.from(new Set((e ?? []).map((row: any) => row.batch_id)));
+    if (batchIds.length) {
+      const { data: links } = await supabase
+        .from("batch_branches")
+        .select("batch_id, branch_id")
+        .in("batch_id", batchIds);
+      const branchIds = Array.from(new Set((links ?? []).map((l: any) => l.branch_id)));
+      const { data: branchRows } = branchIds.length
+        ? await supabase.from("branches").select("id, name_en").in("id", branchIds)
+        : { data: [] as any[] };
+      const nameById = new Map((branchRows ?? []).map((br: any) => [br.id, br.name_en]));
+      const grouped: Record<string, string[]> = {};
+      (links ?? []).forEach((l: any) => {
+        (grouped[l.batch_id] ??= []).push(nameById.get(l.branch_id) ?? "Unknown branch");
+      });
+      setBranchNamesByBatch(grouped);
+    } else {
+      setBranchNamesByBatch({});
+    }
+
     setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
@@ -113,19 +138,35 @@ export default function Applications() {
           </Card>
         ) : (
           <Card className="divide-y">
-            {enrollments.map((e) => (
+            {enrollments.map((e) => {
+              const branchNames = branchNamesByBatch[e.batch_id] ?? [];
+              return (
               <div key={e.id} className="p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-10 w-10 rounded-full bg-info/10 text-info flex items-center justify-center font-semibold shrink-0">
                     {e.students.full_name.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium truncate">{e.students.full_name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {e.students.phone} · Applied for{" "}
-                      <Link to={`/app/batches/${e.batch_id}`} className="font-medium hover:underline">
-                        {e.batches?.courses?.title} — {e.batches?.name}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{e.students.full_name}</span>
+                      <span className="text-xs text-muted-foreground truncate">{e.students.phone}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <Link to={`/app/batches/${e.batch_id}`} className="hover:underline">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {e.batches?.courses?.title} — {e.batches?.name}
+                        </Badge>
                       </Link>
+                      {e.batches?.start_date && (
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <CalendarDays className="h-3 w-3" /> Starts {format(new Date(e.batches.start_date), "MMM d, yyyy")}
+                        </span>
+                      )}
+                      {branchNames.length > 0 && (
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <MapPin className="h-3 w-3" /> {branchNames.join(", ")}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -139,7 +180,8 @@ export default function Applications() {
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </Card>
         )}
       </div>
