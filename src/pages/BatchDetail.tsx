@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlan } from "@/lib/plan";
 import { useAuth } from "@/lib/auth";
@@ -68,6 +68,8 @@ interface Enrollment {
 
 export default function BatchDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "attendance" ? "attendance" : "pipeline";
   const { plan } = usePlan();
   const { center, user } = useAuth();
   const [batch, setBatch] = useState<any>(null);
@@ -476,7 +478,7 @@ export default function BatchDetail() {
           </div>
         </div>
 
-        <Tabs defaultValue="pipeline">
+        <Tabs defaultValue={initialTab}>
           <TabsList>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
