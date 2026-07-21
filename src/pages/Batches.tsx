@@ -28,6 +28,7 @@ import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
 import ListSkeleton from "@/components/ListSkeleton";
 import { friendlyError } from "@/lib/errors";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import MultiSelectFilter from "@/components/MultiSelectFilter";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -77,6 +78,7 @@ export default function Batches() {
   const [instructors, setInstructors] = useState<{ id: string; full_name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<BatchStatus | "all">("all");
+  const [courseFilter, setCourseFilter] = useState<string[]>([]);
   const [pendingPublish, setPendingPublish] = useState<Batch | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
@@ -138,14 +140,23 @@ export default function Batches() {
   };
   useEffect(() => { load(); }, [center]);
 
+  const courseFilterOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    batches.forEach((b) => {
+      if (b.course_id && !seen.has(b.course_id)) seen.set(b.course_id, b.courses?.title ?? "Untitled course");
+    });
+    return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [batches]);
+
   const filteredBatches = useMemo(() => {
     const q = search.trim().toLowerCase();
     return batches.filter((b) => {
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (courseFilter.length > 0 && !courseFilter.includes(b.course_id)) return false;
       if (!q) return true;
       return b.name.toLowerCase().includes(q) || (b.courses?.title ?? "").toLowerCase().includes(q);
     });
-  }, [batches, search, statusFilter]);
+  }, [batches, search, statusFilter, courseFilter]);
 
   const toggleBranch = (id: string, checked: boolean) => {
     setBranchCaps((prev) => {
@@ -304,7 +315,19 @@ export default function Batches() {
           title="Batches"
           description="Live training cohorts — publish to the Ami Probashi mobile app to start receiving applications."
           action={
-            <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+            <Dialog open={open} onOpenChange={(o) => {
+              setOpen(o);
+              if (!o) {
+                resetForm();
+              } else if (branches.length === 1) {
+                // Only branch — pre-select it, nothing to choose.
+                setBranchCaps({ [branches[0].id]: 30 });
+              } else if (branches.length > 1) {
+                // Multiple branches — pre-select the default one created at onboarding; admin can add/remove.
+                const main = branches.find((b) => b.name_en === "Main Branch");
+                if (main) setBranchCaps({ [main.id]: 30 });
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
@@ -607,8 +630,17 @@ export default function Batches() {
                 ))}
               </SelectContent>
             </Select>
-            {(search || statusFilter !== "all") && (
-              <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+            {courseFilterOptions.length > 0 && (
+              <MultiSelectFilter
+                options={courseFilterOptions}
+                selected={courseFilter}
+                onChange={setCourseFilter}
+                placeholder="All courses"
+                className="w-44"
+              />
+            )}
+            {(search || statusFilter !== "all" || courseFilter.length > 0) && (
+              <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setCourseFilter([]); }}>
                 Clear
               </Button>
             )}
@@ -621,7 +653,7 @@ export default function Batches() {
         ) : batches.length === 0 ? (
           <EmptyState icon={CalendarDays} message="No batches yet." />
         ) : filteredBatches.length === 0 ? (
-          <EmptyState icon={Search} message="No batches match your search." />
+          <EmptyState icon={Search} message="No batches match your filters." />
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {filteredBatches.map((b) => (

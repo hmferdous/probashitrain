@@ -49,7 +49,7 @@ export default function Attendance() {
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
             {batches.map((b) => (
-              <Link key={b.id} to={`/app/batches/${b.id}`}>
+              <Link key={b.id} to={`/app/batches/${b.id}?tab=attendance`}>
                 <Card className="p-5 hover:shadow-elegant transition-shadow flex items-center justify-between">
                   <div>
                     <div className="font-semibold">{b.name}</div>
