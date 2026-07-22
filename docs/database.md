@@ -25,7 +25,7 @@ Users are linked to their center via `profiles.center_id`.
 
 ```sql
 app_role:             center_admin | instructor
-batch_status:         draft | published | in_progress | completed | archived
+batch_status:         draft | unpublished | under_review | published | in_progress | completed | archived
 pipeline_status:      applied | shortlisted | training_started | ongoing | completed | certified | rejected
 attendance_status:    present | absent | late
 student_source:       ami_probashi | manual
@@ -97,20 +97,33 @@ High-level skill groupings (Electrical, Plumbing, Driving, etc.). Being phased o
 
 ---
 
+### `categories`
+Real table (migration `20260716090000`) — replaced the old free-text `courses.category` column so category-based reporting/dashboards can join cleanly.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| center_id | uuid NOT NULL | |
+| name | text NOT NULL | |
+| created_at | timestamptz | |
+| — | UNIQUE | `(center_id, name)` |
+
+**RLS:** same pattern as `courses` — all center members can SELECT, only `center_admin` can INSERT/UPDATE/DELETE. The Courses page lets an admin create a new category inline while creating a course (no separate management screen), via a searchable combobox.
+
+---
+
 ### `courses`
-A training program. `trade_id` is now nullable — prefer `category` + `tags` for new courses.
+Deliberately barebone (migration `20260716091000` stripped it back to this — see "Course/batch redundancy" below for why). `trade_id` is legacy/nullable.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
 | center_id | uuid NOT NULL | |
 | trade_id | uuid | Nullable FK to trades — legacy |
+| code | text NOT NULL | Auto-generated `CRS-000001`, trigger-assigned on insert |
 | title | text NOT NULL | |
 | description | text | |
-| duration_hours | int | Default 40 |
-| price | numeric(10,2) | Default 0 |
-| cover_image_url | text | |
-| category | text | Free-text primary grouping (max 60 chars) |
+| category_id | uuid | References `categories(id)`, nullable |
 | tags | text[] | Default `'{}'`, max 10 tags, 30 chars each |
 | created_at | timestamptz | |
 
@@ -119,10 +132,12 @@ A training program. `trade_id` is now nullable — prefer `category` + `tags` fo
 supabase.from("courses").select("*").contains("tags", ["electrical"])
 ```
 
+`duration_hours`, `price`, and `cover_image_url` were dropped — duration/fee are batch-only now. Course materials (`course_materials` table, separate from this) are unaffected and still managed from the Courses page.
+
 ---
 
 ### `batches`
-A scheduled run of a course with seats, dates, and optional instructor assignments.
+A scheduled run of a course with seats, dates, and optional instructor assignments. Holds every scheduling/eligibility/fee field — courses no longer duplicate any of these.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -130,33 +145,50 @@ A scheduled run of a course with seats, dates, and optional instructor assignmen
 | center_id | uuid NOT NULL | |
 | course_id | uuid NOT NULL | References courses |
 | instructor_id | uuid | References auth.users — **legacy single-instructor field**, use `batch_instructors` instead |
-| name | text NOT NULL | e.g. "Batch 12 — June 2026" |
-| start_date | date NOT NULL | |
-| end_date | date NOT NULL | |
+| code | text NOT NULL | Auto-generated `BATCH-000123`, trigger-assigned on insert. Never reserved for a batch that's never saved — see `peek_next_batch_code()` below |
+| name | text NOT NULL | e.g. "Batch 12 — June 2026" — required even for a `draft` |
+| start_date | date | Nullable — a `draft` may not have this yet |
+| end_date | date | Nullable — same |
 | capacity | int | Default 30 |
-| status | batch_status | Default `draft` |
-| published_to_ami_probashi | boolean | Default false |
+| status | batch_status | Default `draft` — see lifecycle below |
 | schedule_notes | text | |
 | description | text | English description |
 | description_bn | text | Bangla description |
 | requirements_text | text | Prerequisites / requirements notes |
-| eligibility_gender | text | e.g. "male", "female", "any" |
+| eligibility_gender | text | e.g. "male", "female" |
 | eligibility_education | text | e.g. "SSC", "HSC" |
 | eligibility_min_age | int | |
 | eligibility_max_age | int | |
 | duration_value | int | Numeric duration (e.g. 3) |
 | duration_unit | text | "days", "weeks", "months" |
-| price | numeric(10,2) | Course fee |
-| tags | text[] | Default `'{}'` |
+| price | numeric(10,2) | Batch's actual charged fee — the only price field in the schema now |
 | application_deadline | date | |
 | fee_collection | fee_collection_method | Default `manual` |
 | created_at | timestamptz | |
 
-**Status lifecycle:** `draft → published → in_progress → completed → archived`
+**Status lifecycle:**
+```
+draft → unpublished → under_review → published → in_progress → completed → archived
+```
+- `draft` — still being filled out in the creation form; only `name` and `course_id` are guaranteed to be set
+- `unpublished` — fully created and saved, not yet submitted to Ami Probashi
+- `under_review` — center admin submitted it; pending Ami Probashi's internal approval (no admin/review tool exists in this repo yet — approving is a demo-only "Simulate approval" button on the Batches page standing in for the real Ami Probashi ops workflow)
+- `published` — approved, live and discoverable on the Ami Probashi app
 
-Setting `published_to_ami_probashi = true` on a `published` or `in_progress` batch makes it visible to students on the Ami Probashi app.
+`published_to_ami_probashi` (boolean) was **retired** — `status` is the single source of truth now (migration `20260716093000`).
+
+**Batch code preview:** `peek_next_batch_code()` (SQL function, `STABLE`, granted to `authenticated`) reads the sequence's current state without advancing it — used to show "this will be assigned: BATCH-000123" in the creation form before the batch is actually saved. The real code is only assigned by the `batches_set_code` trigger on actual insert, so an abandoned draft never burns a code.
 
 **Multi-instructor:** Use the `batch_instructors` junction table instead of `instructor_id`. If a batch has no entries in `batch_instructors`, all instructors in the center can see it.
+
+---
+
+### Course/batch redundancy — why courses are barebone
+
+Courses previously duplicated most of `batches`' scheduling/eligibility/fee fields as "templates" that seeded new batches at creation time. This caused real bugs (course price vs. batch price drift in Payments/Invoice) and was flagged as unnecessary duplication. As of migrations `20260716090000`–`20260716093000`:
+- Courses hold only `title`, `description`, `category_id`, `tags`, and materials.
+- Every batch-specific field lives solely on `batches`.
+- Instead of copying from the parent course, a **second-or-later batch under the same course can copy from the most recently created batch** for that course (dates, eligibility, duration, price, fee collection, document requirements, instructors, and branches/capacity — everything) via a "Copy from previous batch" action in the Batches creation form. This is a one-time form pre-fill, not a stored relationship — no redundancy is reintroduced.
 
 ---
 
@@ -515,6 +547,12 @@ npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 12. `20260705120000_user_branches_pending_invites.sql` — creates user_branches and pending_invites tables ✅ **applied**
 13. `20260705140000_batch_instructors.sql` — creates batch_instructors junction table ✅ **applied**
 14. `20260714100000_students_phone_unique_per_center.sql` — partial unique index on students(center_id, phone) WHERE phone IS NOT NULL ✅ **applied**
+15. `20260716090000_categories_table.sql` — creates `categories` table; backfills from courses.category text; adds courses.category_id; drops courses.category
+16. `20260716091000_simplify_courses.sql` — drops description_bn/requirements_text/eligibility_*/duration_value/duration_unit/duration_hours/price/cover_image_url from courses; drops course_document_requirements table
+17. `20260716092000_batch_status_lifecycle_values.sql` — adds `unpublished`, `under_review` to batch_status enum (enum-value-only migration, no usage in the same file)
+18. `20260716093000_batch_lifecycle_and_code.sql` — makes batches.start_date/end_date nullable (for drafts); drops batches.tags; backfills old `draft` rows to `unpublished`; drops published_to_ami_probashi; adds batches.code + batch_code_seq + set_batch_code trigger + peek_next_batch_code() function
+
+> Note: entries 1–14 above were already out of sync with the actual migration files on disk before this session (several files present in `supabase/migrations/` aren't listed) — that gap predates this work and wasn't introduced or fixed here.
 
 ---
 
