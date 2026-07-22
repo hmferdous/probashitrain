@@ -11,51 +11,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, BookOpen, Trash2, Clock, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
+import { Plus, BookOpen, Trash2, FileText, Upload, X, Download, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
+import CategoryCombobox, { type CategoryOption } from "@/components/CategoryCombobox";
 import { friendlyError } from "@/lib/errors";
 
-type EligibilityGender = "any" | "male" | "female";
-type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
-type DurationUnit = "hours" | "days" | "weeks" | "months";
 type DocType = "nid" | "education_certificate" | "cv" | "training_certificate" | "photo" | "other";
-
-const EDUCATION_LABELS: Record<EducationLevel, string> = {
-  none: "No requirement", jsc: "JSC", ssc: "SSC", hsc: "HSC",
-  diploma: "Diploma", bachelors: "Bachelor's", masters: "Master's",
-};
-const DOC_TYPE_LABELS: Record<DocType, string> = {
-  nid: "NID", education_certificate: "Education certificate", cv: "CV",
-  training_certificate: "Training certificate", photo: "Photo", other: "Other",
-};
 
 interface Course {
   id: string; code: string; title: string; description: string | null;
-  description_bn: string | null; category: string | null;
-  duration_hours: number; price: number | null;
-  duration_value: number | null; duration_unit: DurationUnit | null;
-  requirements_text: string | null;
-  eligibility_gender: EligibilityGender | null;
-  eligibility_min_age: number | null;
-  eligibility_max_age: number | null;
-  eligibility_education: EducationLevel | null;
-  tags: string[] | null;
+  category_id: string | null; tags: string[] | null;
 }
 interface Material {
   id: string; course_id: string; file_name: string; file_path: string;
   mime_type: string | null; size_bytes: number | null;
 }
-interface DocRequirement { doc_type: DocType; mandatory: boolean; }
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const formatSize = (n: number | null) => {
@@ -69,16 +48,14 @@ export default function Courses() {
   const { center, user } = useAuth();
   const { plan } = usePlan();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [durationUnit, setDurationUnit] = useState<DurationUnit>("hours");
-  const [eligGender, setEligGender] = useState<EligibilityGender | "">("");
-  const [eligEducation, setEligEducation] = useState<EducationLevel | "">("");
-  const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [manageCourse, setManageCourse] = useState<Course | null>(null);
   const [filterTag, setFilterTag] = useState<string>("");
@@ -87,43 +64,25 @@ export default function Courses() {
   const [pendingDeleteMaterial, setPendingDeleteMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [docReqsByCourse, setDocReqsByCourse] = useState<Record<string, DocRequirement[]>>({});
-
   const openEdit = (c: Course) => {
     setEditing(c);
     setTags(c.tags ?? []);
     setTagInput("");
+    setCategoryId(c.category_id ?? null);
     setPendingFiles([]);
-    setDurationUnit(c.duration_unit ?? "hours");
-    setEligGender(c.eligibility_gender ?? "");
-    setEligEducation(c.eligibility_education ?? "");
-    setDocRequirements(docReqsByCourse[c.id] ?? []);
     setOpen(true);
   };
 
   const load = async () => {
     if (!center) return;
-    const [c, m] = await Promise.all([
+    const [c, cat, m] = await Promise.all([
       supabase.from("courses").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
+      (supabase.from("categories" as any) as any).select("id, name").eq("center_id", center.id).order("name"),
       supabase.from("course_materials").select("*").eq("center_id", center.id).order("created_at", { ascending: false }),
     ]);
-    const courseList = (c.data as any) ?? [];
-    setCourses(courseList);
+    setCourses((c.data as any) ?? []);
+    setCategories((cat.data as any) ?? []);
     setMaterials((m.data as any) ?? []);
-    const ids = courseList.map((x: Course) => x.id);
-    if (ids.length) {
-      const { data: docs } = await supabase
-        .from("course_document_requirements")
-        .select("course_id, doc_type, mandatory")
-        .in("course_id", ids);
-      const grouped: Record<string, DocRequirement[]> = {};
-      (docs ?? []).forEach((d: any) => {
-        (grouped[d.course_id] ??= []).push({ doc_type: d.doc_type, mandatory: d.mandatory });
-      });
-      setDocReqsByCourse(grouped);
-    } else {
-      setDocReqsByCourse({});
-    }
     setLoading(false);
   };
   useEffect(() => { load(); }, [center]);
@@ -135,16 +94,22 @@ export default function Courses() {
 
   const resetForm = () => {
     setEditing(null);
-    setTags([]); setTagInput(""); setPendingFiles([]);
-    setDurationUnit("hours"); setEligGender(""); setEligEducation(""); setDocRequirements([]);
+    setTags([]); setTagInput(""); setCategoryId(null); setPendingFiles([]);
   };
 
-  const addDocRequirement = () =>
-    setDocRequirements((p) => [...p, { doc_type: "other", mandatory: true }]);
-  const updateDocRequirement = (i: number, patch: Partial<DocRequirement>) =>
-    setDocRequirements((p) => p.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
-  const removeDocRequirement = (i: number) =>
-    setDocRequirements((p) => p.filter((_, idx) => idx !== i));
+  const createCategory = async (name: string): Promise<string | null> => {
+    if (!center) return null;
+    const { data, error } = await (supabase.from("categories" as any) as any)
+      .insert({ center_id: center.id, name })
+      .select("id")
+      .single();
+    if (error || !data) {
+      toast.error(friendlyError(error, "Failed to add category"));
+      return null;
+    }
+    setCategories((prev) => [...prev, { id: data.id, name }].sort((a, b) => a.name.localeCompare(b.name)));
+    return data.id;
+  };
 
   const addTag = (raw: string) => {
     const v = raw.trim().slice(0, 30);
@@ -202,32 +167,14 @@ export default function Courses() {
     const payload = {
       title: String(fd.get("title") || "").trim(),
       description: String(fd.get("description") || "").trim() || null,
-      description_bn: String(fd.get("description_bn") || "").trim() || null,
-      price: Number(fd.get("price") || 0),
-      duration_value: fd.get("duration_value") ? Number(fd.get("duration_value")) : null,
-      duration_unit: durationUnit,
-      requirements_text: String(fd.get("requirements_text") || "").trim() || null,
-      eligibility_gender: eligGender || null,
-      eligibility_min_age: fd.get("eligibility_min_age") ? Number(fd.get("eligibility_min_age")) : null,
-      eligibility_max_age: fd.get("eligibility_max_age") ? Number(fd.get("eligibility_max_age")) : null,
-      eligibility_education: eligEducation || null,
+      category_id: categoryId,
       tags,
     };
     setSubmitting(true);
 
-    const saveDocRequirements = async (courseId: string) => {
-      await supabase.from("course_document_requirements").delete().eq("course_id", courseId);
-      if (docRequirements.length) {
-        await supabase.from("course_document_requirements").insert(
-          docRequirements.map((d) => ({ course_id: courseId, doc_type: d.doc_type, mandatory: d.mandatory }))
-        );
-      }
-    };
-
     if (editing) {
       const { error } = await supabase.from("courses").update(payload as any).eq("id", editing.id);
       if (error) { setSubmitting(false); toast.error(friendlyError(error)); return; }
-      await saveDocRequirements(editing.id);
       if (pendingFiles.length) await uploadFilesForCourse(editing.id, pendingFiles);
       setSubmitting(false);
       toast.success("Course updated");
@@ -246,7 +193,6 @@ export default function Courses() {
       ...payload,
     } as any).select().single();
     if (error || !created) { setSubmitting(false); toast.error(friendlyError(error, "Failed to create course")); return; }
-    await saveDocRequirements(created.id);
     if (pendingFiles.length) await uploadFilesForCourse(created.id, pendingFiles);
     setSubmitting(false);
     toast.success(`Course created${pendingFiles.length ? ` with ${pendingFiles.length} file(s)` : ""}`);
@@ -293,6 +239,7 @@ export default function Courses() {
   };
 
   const materialsByCourse = (id: string) => materials.filter((m) => m.course_id === id);
+  const categoryName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? null;
 
   const visibleCourses = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -316,7 +263,7 @@ export default function Courses() {
                   <Plus className="h-4 w-4 mr-2" /> Add course
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editing ? "Edit course" : "New course"}</DialogTitle>
                 </DialogHeader>
@@ -331,6 +278,15 @@ export default function Courses() {
                   <div className="space-y-2">
                     <Label htmlFor="title">Title *</Label>
                     <Input id="title" name="title" required maxLength={150} defaultValue={editing?.title ?? ""} placeholder="Industrial Wiring Level 1" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <CategoryCombobox
+                      categories={categories}
+                      value={categoryId}
+                      onChange={setCategoryId}
+                      onCreate={createCategory}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Tags</Label>
@@ -355,106 +311,8 @@ export default function Courses() {
                     <p className="text-xs text-muted-foreground">Up to 10 tags, 30 chars each. Press Enter or comma to add.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description (English)</Label>
+                    <Label htmlFor="description">Description</Label>
                     <Textarea id="description" name="description" rows={3} maxLength={1000} defaultValue={editing?.description ?? ""} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description_bn">Description (Bangla)</Label>
-                    <Textarea id="description_bn" name="description_bn" rows={3} maxLength={1000} defaultValue={editing?.description_bn ?? ""} />
-                  </div>
-
-                  <div className="space-y-3 border rounded-md p-3">
-                    <Label>Requirements</Label>
-                    <p className="text-xs text-muted-foreground">Used to gate who can apply on the app. Leave any field unset for no restriction.</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Gender</Label>
-                        <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unset">No restriction</SelectItem>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-normal">Education</Label>
-                        <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unset">No restriction</SelectItem>
-                            {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
-                              <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="eligibility_min_age" className="text-xs font-normal">Min age</Label>
-                        <Input id="eligibility_min_age" name="eligibility_min_age" type="number" min={0} defaultValue={editing?.eligibility_min_age ?? ""} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="eligibility_max_age" className="text-xs font-normal">Max age</Label>
-                        <Input id="eligibility_max_age" name="eligibility_max_age" type="number" min={0} defaultValue={editing?.eligibility_max_age ?? ""} />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="requirements_text" className="text-xs text-muted-foreground font-normal">Additional notes (optional, shown to applicants)</Label>
-                      <Textarea id="requirements_text" name="requirements_text" rows={2} maxLength={500} defaultValue={editing?.requirements_text ?? ""} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="duration_value">Duration</Label>
-                      <div className="flex gap-2">
-                        <Input id="duration_value" name="duration_value" type="number" min={1} className="w-20" defaultValue={editing?.duration_value ?? 40} />
-                        <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
-                          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="hours">Hours</SelectItem>
-                            <SelectItem value="days">Days</SelectItem>
-                            <SelectItem value="weeks">Weeks</SelectItem>
-                            <SelectItem value="months">Months</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (BDT)</Label>
-                      <Input id="price" name="price" type="number" defaultValue={editing?.price ?? 0} min={0} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Document requirements</Label>
-                    {docRequirements.length > 0 && (
-                      <ul className="space-y-1.5">
-                        {docRequirements.map((d, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
-                              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
-                                  <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                              <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
-                              Mandatory
-                            </label>
-                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
-                    </Button>
                   </div>
 
                   <div className="space-y-2">
@@ -479,6 +337,23 @@ export default function Courses() {
                             <span className="text-xs text-muted-foreground">{formatSize(f.size)}</span>
                             <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => removePending(i)}>
                               <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {editing && materialsByCourse(editing.id).length > 0 && (
+                      <ul className="space-y-1.5">
+                        {materialsByCourse(editing.id).map((m) => (
+                          <li key={m.id} className="flex items-center gap-2 text-sm bg-muted/40 rounded px-2 py-1.5">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="flex-1 truncate">{m.file_name}</span>
+                            <span className="text-xs text-muted-foreground">{formatSize(m.size_bytes)}</span>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDownload(m)}>
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setPendingDeleteMaterial(m)} aria-label={`Remove ${m.file_name}`}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </li>
                         ))}
@@ -545,15 +420,16 @@ export default function Courses() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleCourses.map((c) => {
               const count = materialsByCourse(c.id).length;
+              const catName = categoryName(c.category_id);
               return (
                 <Card key={c.id} className="p-5 hover:shadow-elegant transition-shadow group">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      {c.category && <Badge variant="secondary">{c.category}</Badge>}
+                      {catName && <Badge variant="secondary">{catName}</Badge>}
                       <span className="text-[10px] font-mono text-muted-foreground">{c.code}</span>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} title="Edit">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} title="Edit" aria-label={`Edit ${c.title}`}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => setPendingDeleteCourse(c)} title="Delete" aria-label={`Delete ${c.title}`}>
@@ -572,10 +448,6 @@ export default function Courses() {
                       ))}
                     </div>
                   )}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {c.duration_hours}h</span>
-                    <span>৳ {Number(c.price ?? 0).toLocaleString()}</span>
-                  </div>
                   <div className="mt-3 pt-3 border-t flex items-center justify-between">
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <FileText className="h-3.5 w-3.5" /> {count} reading material{count === 1 ? "" : "s"}
