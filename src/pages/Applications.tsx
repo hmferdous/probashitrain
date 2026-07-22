@@ -35,7 +35,7 @@ export default function Applications() {
       .from("batches")
       .select("*, courses(title)")
       .eq("center_id", center.id)
-      .eq("published_to_ami_probashi", true);
+      .eq("status", "published");
     setBatches(b ?? []);
     const { data: e } = await supabase
       .from("enrollments")

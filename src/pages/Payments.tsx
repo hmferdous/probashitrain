@@ -66,7 +66,7 @@ export default function Payments() {
     if (!center) return;
     const { data: enrolls } = await supabase
       .from("enrollments")
-      .select("id, source, batch_id, students(id, full_name, phone), batches!inner(id, name, center_id, fee_collection, courses(title, price))")
+      .select("id, source, batch_id, students(id, full_name, phone), batches!inner(id, name, price, center_id, fee_collection, courses(title))")
       .eq("batches.center_id", center.id)
       .order("applied_at", { ascending: false });
     const filtered = enrolls ?? [];
@@ -86,7 +86,7 @@ export default function Payments() {
       batch_id: e.batch_id,
       batch_name: e.batches?.name ?? "—",
       course_title: e.batches?.courses?.title ?? "—",
-      course_price: Number(e.batches?.courses?.price ?? 0),
+      course_price: Number(e.batches?.price ?? 0),
       source: e.source,
       fee_collection: (e.batches?.fee_collection ?? "manual") as "ami_probashi" | "manual",
       paid: (byEnr[e.id] ?? []).reduce((s, p) => s + Number(p.amount), 0),
