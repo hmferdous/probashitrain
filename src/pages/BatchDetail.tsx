@@ -30,6 +30,8 @@ import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { friendlyError } from "@/lib/errors";
+import DateSelect, { type DateSelectValue } from "@/components/DateSelect";
+import { isoToDateSelectValue, dateSelectValueToISO } from "@/lib/dates";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -83,6 +85,8 @@ export default function BatchDetail() {
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [pickStudent, setPickStudent] = useState("");
   const [openEdit, setOpenEdit] = useState(false);
+  const [editStartDate, setEditStartDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
+  const [editEndDate, setEditEndDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
   const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [openStudent, setOpenStudent] = useState<Enrollment | null>(null);
 
@@ -90,7 +94,7 @@ export default function BatchDetail() {
     if (!id) return;
     const { data: b } = await supabase
       .from("batches")
-      .select("*, courses(title, duration_hours)")
+      .select("*, courses(title)")
       .eq("id", id).maybeSingle();
     setBatch(b);
     // Load assigned instructors
@@ -215,8 +219,15 @@ export default function BatchDetail() {
     const eligGender = String(fd.get("eligibility_gender") || "unset");
     const eligEducation = String(fd.get("eligibility_education") || "unset");
     const durationValue = String(fd.get("duration_value") || "");
-    const tagsRaw = String(fd.get("tags") || "");
+    const startISO = dateSelectValueToISO(editStartDate);
+    const endISO = dateSelectValueToISO(editEndDate);
+    if (startISO && endISO && new Date(startISO) > new Date(endISO)) {
+      toast.error("Start date must be before end date");
+      return;
+    }
     const { error } = await supabase.from("batches").update({
+      start_date: startISO,
+      end_date: endISO,
       description: String(fd.get("description") || "").trim() || null,
       description_bn: String(fd.get("description_bn") || "").trim() || null,
       requirements_text: String(fd.get("requirements_text") || "").trim() || null,
@@ -227,7 +238,6 @@ export default function BatchDetail() {
       duration_value: durationValue ? Number(durationValue) : null,
       duration_unit: String(fd.get("duration_unit") || "hours"),
       price: fd.get("price") ? Number(fd.get("price")) : null,
-      tags: tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 10) : [],
       application_deadline: String(fd.get("application_deadline") || "") || null,
       fee_collection: String(fd.get("fee_collection") || "manual"),
     } as any).eq("id", id);
@@ -265,25 +275,35 @@ export default function BatchDetail() {
         {/* Batch lifecycle banner */}
         {batch.status === "draft" && (
           <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
-            <span className="font-semibold">Draft batch.</span> Publish this batch from the Batches page to start accepting applications and enrollments.
+            <span className="font-semibold">Draft.</span> Still being filled out — add the missing details from "Edit details" below, then submit it for review from the Batches page.
           </div>
         )}
-        {batch.status === "published" && !batch.published_to_ami_probashi && (
-          <div className="mb-4 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm text-info">
-            <span className="font-semibold">Published.</span> Toggle "Publish to Ami Probashi" on the Batches page to make this batch discoverable by 9M+ students on the mobile app.
+        {batch.status === "unpublished" && (
+          <div className="mb-4 rounded-lg border border-muted-foreground/20 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Not yet submitted.</span> Submit this batch for review from the Batches page to make it discoverable on the Ami Probashi app.
           </div>
         )}
-        {batch.status === "published" && batch.published_to_ami_probashi && (
+        {batch.status === "under_review" && (
+          <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+            <span className="font-semibold">Pending Ami Probashi review.</span> The Ami Probashi team is reviewing this submission before it goes live.
+          </div>
+        )}
+        {batch.status === "published" && (
           <div className="mb-4 rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
             <span className="font-semibold">Live on Ami Probashi.</span> Students can discover and apply from the mobile app. Review incoming applications in the Applications page.
           </div>
         )}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <Badge variant="secondary" className="mb-2">{batch.courses?.title}</Badge>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary">{batch.courses?.title}</Badge>
+              <span className="text-xs font-mono text-muted-foreground">{batch.code}</span>
+            </div>
             <h1 className="text-3xl font-bold">{batch.name}</h1>
             <p className="text-muted-foreground mt-1">
-              {format(new Date(batch.start_date), "MMM d")} → {format(new Date(batch.end_date), "MMM d, yyyy")} ·
+              {batch.start_date && batch.end_date
+                ? `${format(new Date(batch.start_date), "MMM d")} → ${format(new Date(batch.end_date), "MMM d, yyyy")} · `
+                : "Dates not set · "}
               Capacity {batch.capacity} · {activeEnrollments.length} enrolled
             </p>
             {batchInstructors.length > 0 && (
@@ -299,15 +319,22 @@ export default function BatchDetail() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {/* Edit details dialog */}
-            <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+            <Dialog
+              open={openEdit}
+              onOpenChange={(o) => {
+                setOpenEdit(o);
+                if (o) {
+                  setEditStartDate(isoToDateSelectValue(batch.start_date));
+                  setEditEndDate(isoToDateSelectValue(batch.end_date));
+                }
+              }}
+            >
               <DialogTrigger asChild><Button variant="outline"><Pencil className="h-4 w-4 mr-2" /> Edit details</Button></DialogTrigger>
               <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Edit batch details</DialogTitle></DialogHeader>
                 <form onSubmit={saveDetails} className="space-y-4">
-                  <div>
-                    <Label>Tags (comma separated)</Label>
-                    <Input name="tags" maxLength={300} defaultValue={(batch.tags ?? []).join(", ")} placeholder="online, in-person" />
-                  </div>
+                  <DateSelect label="Start date" value={editStartDate} onChange={setEditStartDate} />
+                  <DateSelect label="End date" value={editEndDate} onChange={setEditEndDate} />
                   <div>
                     <Label>Description</Label>
                     <Textarea name="description" rows={3} maxLength={2000} defaultValue={batch.description ?? ""} />

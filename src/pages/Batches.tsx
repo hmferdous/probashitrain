@@ -17,7 +17,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown, ChevronRight as ChevronRightIcon, Search } from "lucide-react";
+import {
+  Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown,
+  ChevronRight as ChevronRightIcon, Search, Copy, Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -29,6 +32,7 @@ import ListSkeleton from "@/components/ListSkeleton";
 import { friendlyError } from "@/lib/errors";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import MultiSelectFilter from "@/components/MultiSelectFilter";
+import { isoToDateSelectValue, dateSelectValueToISO } from "@/lib/dates";
 
 type EligibilityGender = "any" | "male" | "female";
 type EducationLevel = "none" | "jsc" | "ssc" | "hsc" | "diploma" | "bachelors" | "masters";
@@ -45,27 +49,18 @@ const DOC_TYPE_LABELS: Record<DocType, string> = {
   training_certificate: "Training certificate", photo: "Photo", other: "Other",
 };
 
-interface Course {
-  id: string; title: string;
-  description: string | null; description_bn: string | null;
-  requirements_text: string | null;
-  eligibility_gender: EligibilityGender | null;
-  eligibility_min_age: number | null;
-  eligibility_max_age: number | null;
-  eligibility_education: EducationLevel | null;
-  duration_value: number | null; duration_unit: DurationUnit | null;
-  price: number | null;
-}
+interface Course { id: string; title: string; }
 interface DocRequirement { doc_type: DocType; mandatory: boolean; }
 
 interface Batch {
-  id: string; name: string; start_date: string; end_date: string;
-  capacity: number; status: string; published_to_ami_probashi: boolean;
-  course_id: string; courses?: { title: string };
+  id: string; code: string; name: string;
+  start_date: string | null; end_date: string | null;
+  capacity: number; status: BatchStatus;
+  course_id: string; courses?: { title: string; tags: string[] | null };
   enrollment_count?: number;
   application_deadline: string | null;
   fee_collection: FeeCollection;
-  tags: string[] | null;
+  created_at: string;
 }
 
 interface Branch { id: string; name_en: string; name_bn: string; }
@@ -82,10 +77,12 @@ export default function Batches() {
   const [pendingPublish, setPendingPublish] = useState<Batch | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
   const [branchCaps, setBranchCaps] = useState<Record<string, number>>({});
   const [selectedInstructors, setSelectedInstructors] = useState<string[]>([]);
 
-  // Batch-level editable copies, auto-populated from the selected course.
+  const [batchName, setBatchName] = useState("");
   const [description, setDescription] = useState("");
   const [descriptionBn, setDescriptionBn] = useState("");
   const [requirementsText, setRequirementsText] = useState("");
@@ -96,25 +93,28 @@ export default function Batches() {
   const [durationValue, setDurationValue] = useState<string>("");
   const [durationUnit, setDurationUnit] = useState<DurationUnit>("hours");
   const [price, setPrice] = useState<string>("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
+  const [applicationDeadline, setApplicationDeadline] = useState("");
   const [docRequirements, setDocRequirements] = useState<DocRequirement[]>([]);
   const [feeCollection, setFeeCollection] = useState<FeeCollection>("manual");
-  const [showCourseDetails, setShowCourseDetails] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [showRequirements, setShowRequirements] = useState(false);
+  const [showDurationFee, setShowDurationFee] = useState(false);
+  const [showDocRequirements, setShowDocRequirements] = useState(false);
+  const [showInstructors, setShowInstructors] = useState(false);
   const [startDate, setStartDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
   const [endDate, setEndDate] = useState<DateSelectValue>({ day: "", month: "", year: "" });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     if (!center) return;
     const [b, c, br, roles] = await Promise.all([
       supabase
         .from("batches")
-        .select("*, courses(title)")
+        .select("*, courses(title, tags)")
         .eq("center_id", center.id)
-        .order("start_date", { ascending: false }),
-      supabase.from("courses").select("*").eq("center_id", center.id),
+        .order("created_at", { ascending: false }),
+      supabase.from("courses").select("id, title").eq("center_id", center.id),
       supabase.from("branches").select("id, name_en, name_bn").eq("center_id", center.id).order("name_en"),
       supabase.from("user_roles").select("user_id").eq("center_id", center.id).eq("role", "instructor"),
     ]);
@@ -158,6 +158,14 @@ export default function Batches() {
     });
   }, [batches, search, statusFilter, courseFilter]);
 
+  // Most recent batch already created under the selected course, if any — source for "copy from previous batch".
+  const previousBatchForCourse = useMemo(() => {
+    if (!selectedCourse) return null;
+    const matches = batches.filter((b) => b.course_id === selectedCourse);
+    if (!matches.length) return null;
+    return matches.reduce((latest, b) => (b.created_at > latest.created_at ? b : latest));
+  }, [batches, selectedCourse]);
+
   const toggleBranch = (id: string, checked: boolean) => {
     setBranchCaps((prev) => {
       const next = { ...prev };
@@ -169,52 +177,64 @@ export default function Batches() {
 
   const resetForm = () => {
     setSelectedCourse(""); setBranchCaps({}); setSelectedInstructors([]);
+    setPreviewCode(null);
+    setBatchName("");
     setDescription(""); setDescriptionBn(""); setRequirementsText("");
     setEligGender(""); setEligEducation(""); setEligMinAge(""); setEligMaxAge("");
     setDurationValue(""); setDurationUnit("hours"); setPrice("");
-    setTags([]); setTagInput(""); setDocRequirements([]); setFeeCollection("manual");
-    setShowCourseDetails(false); setShowMoreOptions(false);
+    setApplicationDeadline("");
+    setDocRequirements([]); setFeeCollection("manual");
+    setShowDescription(false); setShowRequirements(false); setShowDurationFee(false);
+    setShowDocRequirements(false); setShowInstructors(false);
     setStartDate({ day: "", month: "", year: "" });
     setEndDate({ day: "", month: "", year: "" });
   };
 
-  const applyCourseDefaults = async (courseId: string) => {
-    setSelectedCourse(courseId);
-    setShowCourseDetails(true);
-    const course = courses.find((c) => c.id === courseId);
-    if (!course) return;
-    setDescription(course.description ?? "");
-    setDescriptionBn(course.description_bn ?? "");
-    setRequirementsText(course.requirements_text ?? "");
-    setEligGender(course.eligibility_gender ?? "");
-    setEligEducation(course.eligibility_education ?? "");
-    setEligMinAge(course.eligibility_min_age != null ? String(course.eligibility_min_age) : "");
-    setEligMaxAge(course.eligibility_max_age != null ? String(course.eligibility_max_age) : "");
-    setDurationValue(course.duration_value != null ? String(course.duration_value) : "");
-    setDurationUnit(course.duration_unit ?? "hours");
-    setPrice(course.price != null ? String(course.price) : "");
-    const { data: docs } = await supabase
-      .from("course_document_requirements")
-      .select("doc_type, mandatory")
-      .eq("course_id", courseId);
+  const copyFromPreviousBatch = async () => {
+    if (!previousBatchForCourse) return;
+    setCopying(true);
+    const prev = previousBatchForCourse;
+    const [{ data: links }, { data: instructorLinks }, { data: docs }] = await Promise.all([
+      supabase.from("batch_branches").select("branch_id, capacity").eq("batch_id", prev.id),
+      (supabase.from("batch_instructors" as any) as any).select("user_id").eq("batch_id", prev.id),
+      supabase.from("batch_document_requirements").select("doc_type, mandatory").eq("batch_id", prev.id),
+    ]);
+    setCopying(false);
+
+    setStartDate(isoToDateSelectValue(prev.start_date));
+    setEndDate(isoToDateSelectValue(prev.end_date));
+    const capMap: Record<string, number> = {};
+    (links ?? []).forEach((l: any) => { capMap[l.branch_id] = l.capacity; });
+    setBranchCaps(capMap);
+    setSelectedInstructors((instructorLinks ?? []).map((l: any) => l.user_id));
     setDocRequirements((docs as any) ?? []);
+    setApplicationDeadline(prev.application_deadline ?? "");
+    setFeeCollection(prev.fee_collection ?? "manual");
+
+    // Batch-level fields not in the summary row — fetch the full previous batch.
+    const { data: full } = await supabase.from("batches").select("*").eq("id", prev.id).maybeSingle();
+    if (full) {
+      setDescription((full as any).description ?? "");
+      setDescriptionBn((full as any).description_bn ?? "");
+      setRequirementsText((full as any).requirements_text ?? "");
+      setEligGender((full as any).eligibility_gender ?? "");
+      setEligEducation((full as any).eligibility_education ?? "");
+      setEligMinAge((full as any).eligibility_min_age != null ? String((full as any).eligibility_min_age) : "");
+      setEligMaxAge((full as any).eligibility_max_age != null ? String((full as any).eligibility_max_age) : "");
+      setDurationValue((full as any).duration_value != null ? String((full as any).duration_value) : "");
+      setDurationUnit((full as any).duration_unit ?? "hours");
+      setPrice((full as any).price != null ? String((full as any).price) : "");
+    }
+
+    setShowDescription(true); setShowRequirements(true); setShowDurationFee(true);
+    setShowDocRequirements((docs ?? []).length > 0); setShowInstructors((instructorLinks ?? []).length > 0);
+    toast.success("Copied from previous batch — review and adjust as needed");
   };
 
-  const addTag = (raw: string) => {
-    const v = raw.trim().slice(0, 30);
-    if (!v) return;
-    if (tags.length >= 10) { toast.error("Up to 10 tags"); return; }
-    if (tags.includes(v)) return;
-    setTags((p) => [...p, v]);
-    setTagInput("");
-  };
-  const onTagKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag(tagInput);
-    } else if (e.key === "Backspace" && !tagInput && tags.length) {
-      setTags((p) => p.slice(0, -1));
-    }
+  const onSelectCourse = async (courseId: string) => {
+    setSelectedCourse(courseId);
+    const { data } = await (supabase.rpc as any)("peek_next_batch_code");
+    setPreviewCode(data ?? null);
   };
 
   const addDocRequirement = () =>
@@ -224,9 +244,71 @@ export default function Batches() {
   const removeDocRequirement = (i: number) =>
     setDocRequirements((p) => p.filter((_, idx) => idx !== i));
 
+  const buildPayload = (status: "draft" | "unpublished") => {
+    const startISO = dateSelectValueToISO(startDate);
+    const endISO = dateSelectValueToISO(endDate);
+    return {
+      course_id: selectedCourse,
+      name: batchName.trim(),
+      start_date: startISO,
+      end_date: endISO,
+      status,
+      description: description.trim() || null,
+      description_bn: descriptionBn.trim() || null,
+      requirements_text: requirementsText.trim() || null,
+      eligibility_gender: eligGender || null,
+      eligibility_education: eligEducation || null,
+      eligibility_min_age: eligMinAge ? Number(eligMinAge) : null,
+      eligibility_max_age: eligMaxAge ? Number(eligMaxAge) : null,
+      duration_value: durationValue ? Number(durationValue) : null,
+      duration_unit: durationUnit,
+      price: price ? Number(price) : null,
+      application_deadline: applicationDeadline || null,
+      fee_collection: feeCollection,
+    };
+  };
+
+  const saveLinkedRecords = async (batchId: string) => {
+    const selectedBranchIds = Object.keys(branchCaps);
+    if (selectedBranchIds.length) {
+      const links = selectedBranchIds.map((bid) => ({ batch_id: batchId, branch_id: bid, capacity: branchCaps[bid] }));
+      await supabase.from("batch_branches").insert(links);
+    }
+    if (docRequirements.length) {
+      await supabase.from("batch_document_requirements").insert(
+        docRequirements.map((d) => ({ batch_id: batchId, doc_type: d.doc_type, mandatory: d.mandatory }))
+      );
+    }
+    if (selectedInstructors.length) {
+      await (supabase.from("batch_instructors" as any) as any).insert(
+        selectedInstructors.map((uid) => ({ batch_id: batchId, user_id: uid, center_id: center!.id }))
+      );
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!center) return;
+    if (!selectedCourse) { toast.error("Select a course"); return; }
+    if (!batchName.trim()) { toast.error("Enter at least a batch name to save a draft"); return; }
+    setSaving(true);
+    const totalCapacity = Object.values(branchCaps).reduce((s, c) => s + c, 0);
+    const { data: created, error } = await supabase.from("batches").insert({
+      center_id: center.id,
+      ...buildPayload("draft"),
+      capacity: totalCapacity || 0,
+    } as any).select().single();
+    setSaving(false);
+    if (error || !created) { toast.error(friendlyError(error, "Failed to save draft")); return; }
+    await saveLinkedRecords(created.id);
+    toast.success("Saved as draft");
+    setOpen(false); resetForm();
+    load();
+  };
+
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!center || !selectedCourse) { toast.error("Select a course"); return; }
+    if (!batchName.trim()) { toast.error("Batch name is required"); return; }
     const selectedBranchIds = Object.keys(branchCaps);
     if (selectedBranchIds.length === 0) {
       toast.error("Select at least one branch with its capacity");
@@ -240,71 +322,51 @@ export default function Batches() {
     }
     if (!startDate.month || !startDate.year) { toast.error("Start month and year are required"); return; }
     if (!endDate.month || !endDate.year) { toast.error("End month and year are required"); return; }
-    const startISO = `${startDate.year}-${startDate.month.padStart(2, "0")}-${(startDate.day || "01").padStart(2, "0")}`;
-    const endISO = `${endDate.year}-${endDate.month.padStart(2, "0")}-${(endDate.day || "01").padStart(2, "0")}`;
-    if (new Date(startISO) > new Date(endISO)) { toast.error("Start date must be before end date"); return; }
-    const fd = new FormData(e.currentTarget);
-    const batchName = String(fd.get("name") || "").trim();
-    if (!batchName) { toast.error("Batch name is required"); return; }
+    const payload = buildPayload("unpublished");
+    if (new Date(payload.start_date!) > new Date(payload.end_date!)) { toast.error("Start date must be before end date"); return; }
     const { count: nameCount } = await supabase.from("batches")
       .select("id", { count: "exact", head: true })
-      .eq("center_id", center.id).eq("name", batchName);
+      .eq("center_id", center.id).eq("name", batchName.trim());
     if (nameCount && nameCount > 0) {
       toast.error("A batch with this name already exists in your center.");
       return;
     }
+    setSaving(true);
     const totalCapacity = selectedBranchIds.reduce((s, id) => s + branchCaps[id], 0);
     const { data: created, error } = await supabase.from("batches").insert({
       center_id: center.id,
-      course_id: selectedCourse,
-      name: batchName,
-      start_date: startISO,
-      end_date: endISO,
+      ...payload,
       capacity: totalCapacity,
-      status: "draft",
-      description: description.trim() || null,
-      description_bn: descriptionBn.trim() || null,
-      requirements_text: requirementsText.trim() || null,
-      eligibility_gender: eligGender || null,
-      eligibility_education: eligEducation || null,
-      eligibility_min_age: eligMinAge ? Number(eligMinAge) : null,
-      eligibility_max_age: eligMaxAge ? Number(eligMaxAge) : null,
-      duration_value: durationValue ? Number(durationValue) : null,
-      duration_unit: durationUnit,
-      price: price ? Number(price) : null,
-      tags,
-      application_deadline: String(fd.get("application_deadline") || "") || null,
-      fee_collection: feeCollection,
     } as any).select().single();
-    if (error || !created) { toast.error(friendlyError(error, "Failed to create batch")); return; }
-    const links = selectedBranchIds.map((bid) => ({
-      batch_id: created.id, branch_id: bid, capacity: branchCaps[bid],
-    }));
-    const { error: linkErr } = await supabase.from("batch_branches").insert(links);
-    if (linkErr) { toast.error(friendlyError(linkErr)); return; }
-    if (docRequirements.length) {
-      await supabase.from("batch_document_requirements").insert(
-        docRequirements.map((d) => ({ batch_id: created.id, doc_type: d.doc_type, mandatory: d.mandatory }))
-      );
-    }
-    if (selectedInstructors.length) {
-      await (supabase.from("batch_instructors" as any) as any).insert(
-        selectedInstructors.map((uid) => ({ batch_id: created.id, user_id: uid, center_id: center.id }))
-      );
-    }
+    if (error || !created) { setSaving(false); toast.error(friendlyError(error, "Failed to create batch")); return; }
+    await saveLinkedRecords(created.id);
+    setSaving(false);
     toast.success("Batch created");
     setOpen(false); resetForm();
     load();
   };
 
-  const togglePublish = async (b: Batch) => {
-    const next = !b.published_to_ami_probashi;
-    const updates: any = { published_to_ami_probashi: next };
-    if (next && b.status === "draft") updates.status = "published";
-    if (next) updates.published_at = new Date().toISOString();
-    const { error } = await supabase.from("batches").update(updates).eq("id", b.id);
+  // unpublished -> under_review (admin submits for Ami Probashi's review)
+  const submitForReview = async (b: Batch) => {
+    const { error } = await supabase.from("batches").update({ status: "under_review" }).eq("id", b.id);
     if (error) { toast.error(friendlyError(error)); return; }
-    toast.success(next ? "Published to Ami Probashi" : "Unpublished");
+    toast.success("Submitted to Ami Probashi for review");
+    load();
+  };
+
+  // published -> unpublished (admin pulls it back down, no review needed for this direction)
+  const unpublish = async (b: Batch) => {
+    const { error } = await supabase.from("batches").update({ status: "unpublished" }).eq("id", b.id);
+    if (error) { toast.error(friendlyError(error)); return; }
+    toast.success("Unpublished");
+    load();
+  };
+
+  // Demo only: stands in for Ami Probashi's internal review team approving the submission.
+  const simulateApproval = async (b: Batch) => {
+    const { error } = await supabase.from("batches").update({ status: "published" }).eq("id", b.id);
+    if (error) { toast.error(friendlyError(error)); return; }
+    toast.success("Approved — now live on Ami Probashi");
     load();
   };
 
@@ -313,17 +375,15 @@ export default function Batches() {
       <div className="p-8 max-w-7xl mx-auto">
         <PageHeader
           title="Batches"
-          description="Live training cohorts — publish to the Ami Probashi mobile app to start receiving applications."
+          description="Live training cohorts — submit to Ami Probashi for review to start receiving applications."
           action={
             <Dialog open={open} onOpenChange={(o) => {
               setOpen(o);
               if (!o) {
                 resetForm();
               } else if (branches.length === 1) {
-                // Only branch — pre-select it, nothing to choose.
                 setBranchCaps({ [branches[0].id]: 30 });
               } else if (branches.length > 1) {
-                // Multiple branches — pre-select the default one created at onboarding; admin can add/remove.
                 const main = branches.find((b) => b.name_en === "Main Branch");
                 if (main) setBranchCaps({ [main.id]: 30 });
               }
@@ -334,10 +394,16 @@ export default function Batches() {
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>New batch</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
-                  {/* ── Required fields ── */}
+                  {previewCode && (
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Will be assigned: <span className="font-semibold text-foreground">{previewCode}</span>
+                      <span className="italic"> (only if saved)</span>
+                    </p>
+                  )}
+
                   <div className="space-y-2">
                     <Label>Course *</Label>
-                    <Select value={selectedCourse} onValueChange={applyCourseDefaults}>
+                    <Select value={selectedCourse} onValueChange={onSelectCourse}>
                       <SelectTrigger><SelectValue placeholder="Choose course" /></SelectTrigger>
                       <SelectContent>
                         {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
@@ -345,15 +411,28 @@ export default function Batches() {
                     </Select>
                   </div>
 
+                  {previousBatchForCourse && (
+                    <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        Found a previous batch (<span className="font-medium text-foreground">{previousBatchForCourse.name}</span>) for this course.
+                      </p>
+                      <Button type="button" size="sm" variant="outline" onClick={copyFromPreviousBatch} disabled={copying}>
+                        <Copy className="h-3.5 w-3.5 mr-1.5" /> {copying ? "Copying…" : "Copy from previous batch"}
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="name">Batch name *</Label>
-                    <Input id="name" name="name" required maxLength={100} placeholder="Morning Batch — Jan 2026" />
+                    <Input
+                      id="name" maxLength={100} placeholder="Morning Batch — Jan 2026"
+                      value={batchName} onChange={(e) => setBatchName(e.target.value)}
+                    />
                   </div>
 
                   <DateSelect label="Start date" value={startDate} onChange={setStartDate} />
                   <DateSelect label="End date" value={endDate} onChange={setEndDate} />
 
-                  {/* ── Branches & capacity (required) ── */}
                   <div className="space-y-2">
                     <Label>Branches & capacity *</Label>
                     {branches.length === 0 ? (
@@ -389,222 +468,181 @@ export default function Batches() {
                     )}
                   </div>
 
-                  {/* ── Collapsible: Course details (pre-filled) ── */}
-                  <div className="border rounded-md overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setShowCourseDetails((v) => !v)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
-                    >
-                      <span>
-                        Course details
-                        {selectedCourse && <span className="ml-2 text-xs font-normal text-muted-foreground">(pre-filled from course — editable)</span>}
-                      </span>
-                      {showCourseDetails ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    {showCourseDetails && (
-                      <div className="px-4 pb-4 space-y-4 border-t pt-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="description">Description (English)</Label>
-                          <Textarea id="description" rows={3} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="description_bn">Description (Bangla)</Label>
-                          <Textarea id="description_bn" rows={3} maxLength={1000} value={descriptionBn} onChange={(e) => setDescriptionBn(e.target.value)} />
-                        </div>
+                  {/* ── Description ── */}
+                  <CollapsibleSection title="Description" open={showDescription} onToggle={() => setShowDescription((v) => !v)}>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description (English)</Label>
+                      <Textarea id="description" rows={3} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description_bn">Description (Bangla)</Label>
+                      <Textarea id="description_bn" rows={3} maxLength={1000} value={descriptionBn} onChange={(e) => setDescriptionBn(e.target.value)} />
+                    </div>
+                  </CollapsibleSection>
 
-                        <div className="space-y-3 border rounded-md p-3 bg-muted/20">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm">Eligibility requirements</Label>
-                            <span className="text-xs text-muted-foreground">Leave unset for no restriction</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-normal text-muted-foreground">Gender</Label>
-                              <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">No restriction</SelectItem>
-                                  <SelectItem value="male">Male</SelectItem>
-                                  <SelectItem value="female">Female</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-normal text-muted-foreground">Min education</Label>
-                              <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">No restriction</SelectItem>
-                                  {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
-                                    <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-normal text-muted-foreground">Min age</Label>
-                              <Input type="number" min={0} value={eligMinAge} onChange={(e) => setEligMinAge(e.target.value)} />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-normal text-muted-foreground">Max age</Label>
-                              <Input type="number" min={0} value={eligMaxAge} onChange={(e) => setEligMaxAge(e.target.value)} />
-                            </div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-normal text-muted-foreground">Additional notes (shown to applicants)</Label>
-                            <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
-                          </div>
-                        </div>
+                  {/* ── Requirements ── */}
+                  <CollapsibleSection title="Requirements" open={showRequirements} onToggle={() => setShowRequirements((v) => !v)}>
+                    <p className="text-xs text-muted-foreground -mt-2">Used to gate who can apply on the app. Leave any field unset for no restriction.</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal text-muted-foreground">Gender</Label>
+                        <Select value={eligGender || "unset"} onValueChange={(v) => setEligGender(v === "unset" ? "" : (v as EligibilityGender))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unset">No restriction</SelectItem>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal text-muted-foreground">Min education</Label>
+                        <Select value={eligEducation || "unset"} onValueChange={(v) => setEligEducation(v === "unset" ? "" : (v as EducationLevel))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unset">No restriction</SelectItem>
+                            {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
+                              <SelectItem key={k} value={k}>{EDUCATION_LABELS[k]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal text-muted-foreground">Min age</Label>
+                        <Input type="number" min={0} value={eligMinAge} onChange={(e) => setEligMinAge(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-normal text-muted-foreground">Max age</Label>
+                        <Input type="number" min={0} value={eligMaxAge} onChange={(e) => setEligMaxAge(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-normal text-muted-foreground">Additional notes (shown to applicants)</Label>
+                      <Textarea rows={2} maxLength={500} value={requirementsText} onChange={(e) => setRequirementsText(e.target.value)} />
+                    </div>
+                  </CollapsibleSection>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Duration</Label>
-                            <div className="flex gap-2">
-                              <Input type="number" min={1} className="w-20" value={durationValue} onChange={(e) => setDurationValue(e.target.value)} />
-                              <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
-                                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="hours">Hours</SelectItem>
-                                  <SelectItem value="days">Days</SelectItem>
-                                  <SelectItem value="weeks">Weeks</SelectItem>
-                                  <SelectItem value="months">Months</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Course fee (BDT)</Label>
-                            <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
-                          </div>
+                  {/* ── Duration & fee ── */}
+                  <CollapsibleSection title="Duration & fee" open={showDurationFee} onToggle={() => setShowDurationFee((v) => !v)}>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Duration</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" min={1} className="w-20" value={durationValue} onChange={(e) => setDurationValue(e.target.value)} />
+                          <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as DurationUnit)}>
+                            <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                              <SelectItem value="weeks">Weeks</SelectItem>
+                              <SelectItem value="months">Months</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                    )}
-                  </div>
+                      <div className="space-y-2">
+                        <Label>Course fee (BDT)</Label>
+                        <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="application_deadline">Application deadline</Label>
+                        <Input id="application_deadline" type="date" value={applicationDeadline} onChange={(e) => setApplicationDeadline(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Fee collection</Label>
+                        <Select value={feeCollection} onValueChange={(v) => setFeeCollection(v as FeeCollection)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manual (center collects)</SelectItem>
+                            <SelectItem value="ami_probashi">Ami Probashi collects</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CollapsibleSection>
 
-                  {/* ── Collapsible: More options ── */}
-                  <div className="border rounded-md overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreOptions((v) => !v)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
-                    >
-                      <span>More options <span className="text-xs font-normal text-muted-foreground">(tags, deadline, docs, instructors)</span></span>
-                      {showMoreOptions ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    {showMoreOptions && (
-                      <div className="px-4 pb-4 space-y-4 border-t pt-4">
-                        <div className="space-y-2">
-                          <Label>Tags</Label>
-                          <div className="flex flex-wrap gap-1.5 border rounded-md px-2 py-1.5 min-h-[40px] items-center">
-                            {tags.map((t) => (
-                              <Badge key={t} variant="secondary" className="gap-1">
-                                {t}
-                                <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))} className="hover:text-destructive">
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                            <input
-                              value={tagInput}
-                              onChange={(e) => setTagInput(e.target.value)}
-                              onKeyDown={onTagKey}
-                              onBlur={() => tagInput && addTag(tagInput)}
-                              placeholder={tags.length ? "" : "e.g. online, evening — press Enter to add"}
-                              className="flex-1 min-w-[160px] bg-transparent outline-none text-sm py-1"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="application_deadline">Application deadline</Label>
-                            <Input id="application_deadline" name="application_deadline" type="date" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Fee collection</Label>
-                            <Select value={feeCollection} onValueChange={(v) => setFeeCollection(v as FeeCollection)}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
+                  {/* ── Document requirements ── */}
+                  <CollapsibleSection title="Document requirements" open={showDocRequirements} onToggle={() => setShowDocRequirements((v) => !v)}>
+                    {docRequirements.length > 0 && (
+                      <ul className="space-y-1.5">
+                        {docRequirements.map((d, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
+                              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="manual">Manual (center collects)</SelectItem>
-                                <SelectItem value="ami_probashi">Ami Probashi collects</SelectItem>
+                                {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
+                                  <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
-                          </div>
-                        </div>
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                              <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
+                              Mandatory
+                            </label>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
+                    </Button>
+                  </CollapsibleSection>
 
-                        <div className="space-y-2">
-                          <Label>Document requirements</Label>
-                          {docRequirements.length > 0 && (
-                            <ul className="space-y-1.5">
-                              {docRequirements.map((d, i) => (
-                                <li key={i} className="flex items-center gap-2">
-                                  <Select value={d.doc_type} onValueChange={(v) => updateDocRequirement(i, { doc_type: v as DocType })}>
-                                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      {(Object.keys(DOC_TYPE_LABELS) as DocType[]).map((k) => (
-                                        <SelectItem key={k} value={k}>{DOC_TYPE_LABELS[k]}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                                    <Checkbox checked={d.mandatory} onCheckedChange={(v) => updateDocRequirement(i, { mandatory: v === true })} />
-                                    Mandatory
-                                  </label>
-                                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => removeDocRequirement(i)}>
-                                    <X className="h-3.5 w-3.5" />
-                                  </Button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          <Button type="button" variant="outline" size="sm" onClick={addDocRequirement}>
-                            <Plus className="h-3.5 w-3.5 mr-1" /> Add document requirement
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Instructors <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                          {instructors.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No instructors added yet. Invite instructors from User Management.</p>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {instructors.map((inst) => {
-                                const selected = selectedInstructors.includes(inst.id);
-                                return (
-                                  <button
-                                    key={inst.id}
-                                    type="button"
-                                    onClick={() => setSelectedInstructors((prev) =>
-                                      selected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
-                                    )}
-                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                                      selected
-                                        ? "border-primary bg-primary/10 text-primary"
-                                        : "border-border hover:bg-muted/50 text-muted-foreground"
-                                    }`}
-                                  >
-                                    <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
-                                      {inst.full_name.charAt(0).toUpperCase()}
-                                    </span>
-                                    {inst.full_name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                  {/* ── Instructors ── */}
+                  <CollapsibleSection title="Instructors" open={showInstructors} onToggle={() => setShowInstructors((v) => !v)}>
+                    {instructors.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No instructors added yet. Invite instructors from User Management.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {instructors.map((inst) => {
+                          const selected = selectedInstructors.includes(inst.id);
+                          return (
+                            <button
+                              key={inst.id}
+                              type="button"
+                              onClick={() => setSelectedInstructors((prev) =>
+                                selected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
+                              )}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border hover:bg-muted/50 text-muted-foreground"
+                              }`}
+                            >
+                              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
+                                {inst.full_name.charAt(0).toUpperCase()}
+                              </span>
+                              {inst.full_name}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
-                  </div>
+                  </CollapsibleSection>
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={branches.length === 0 || Object.keys(branchCaps).length === 0}
-                  >
-                    Create batch
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={saving || !selectedCourse || !batchName.trim()}
+                      onClick={handleSaveDraft}
+                    >
+                      Save as draft
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={saving || branches.length === 0 || Object.keys(branchCaps).length === 0}
+                    >
+                      {saving ? "Saving…" : "Create batch"}
+                    </Button>
+                  </div>
                 </form>
               </DialogContent>
             </Dialog>
@@ -660,14 +698,17 @@ export default function Batches() {
               <Card key={b.id} className="p-5 hover:shadow-elegant transition-shadow">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <Badge variant="secondary" className="mb-2">{b.courses?.title}</Badge>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary">{b.courses?.title}</Badge>
+                      <span className="text-[10px] font-mono text-muted-foreground">{b.code}</span>
+                    </div>
                     <h3 className="font-semibold text-lg">{b.name}</h3>
                   </div>
-                  <StatusBadge status={BATCH_STATUS_CONFIG[b.status as BatchStatus] ?? BATCH_STATUS_CONFIG.draft} />
+                  <StatusBadge status={BATCH_STATUS_CONFIG[b.status] ?? BATCH_STATUS_CONFIG.draft} />
                 </div>
-                {(b.tags ?? []).length > 0 && (
+                {(b.courses?.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-2">
-                    {(b.tags ?? []).map((t) => (
+                    {(b.courses?.tags ?? []).map((t) => (
                       <span key={t} className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         {t}
                       </span>
@@ -677,7 +718,9 @@ export default function Batches() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
-                    {format(new Date(b.start_date), "MMM d")} → {format(new Date(b.end_date), "MMM d, yyyy")}
+                    {b.start_date && b.end_date
+                      ? `${format(new Date(b.start_date), "MMM d")} → ${format(new Date(b.end_date), "MMM d, yyyy")}`
+                      : "Dates not set"}
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" /> {b.enrollment_count ?? 0} / {b.capacity}
@@ -687,16 +730,25 @@ export default function Batches() {
                   <p className="text-xs text-muted-foreground mt-1">Applications close {format(new Date(b.application_deadline), "MMM d, yyyy")}</p>
                 )}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  {b.published_to_ami_probashi ? (
+                  {b.status === "published" ? (
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <Switch checked onCheckedChange={() => togglePublish(b)} />
+                      <Switch checked onCheckedChange={() => unpublish(b)} />
                       <Smartphone className="h-3.5 w-3.5 text-success" />
                       <span className="text-success font-medium">Live on Ami Probashi</span>
                     </label>
-                  ) : (
+                  ) : b.status === "under_review" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-warning font-medium">Pending Ami Probashi review</span>
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => simulateApproval(b)}>
+                        <Sparkles className="h-3.5 w-3.5" /> Simulate approval (demo)
+                      </Button>
+                    </div>
+                  ) : b.status === "unpublished" ? (
                     <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPendingPublish(b)}>
                       <Smartphone className="h-3.5 w-3.5" /> Publish to Ami Probashi
                     </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Complete this draft to publish it</span>
                   )}
                   <Link to={`/app/batches/${b.id}`} className="text-sm text-primary font-medium flex items-center gap-1 hover:underline">
                     Manage <ArrowRight className="h-3.5 w-3.5" />
@@ -711,15 +763,33 @@ export default function Batches() {
       <ConfirmDialog
         open={!!pendingPublish}
         onOpenChange={(o) => !o && setPendingPublish(null)}
-        title="Publish this batch to Ami Probashi?"
-        description={`"${pendingPublish?.name}" will become visible to Ami Probashi's app users and start accepting applications. You can unpublish it again at any time.`}
-        confirmLabel="Publish"
+        title="Submit this batch to Ami Probashi?"
+        description={`"${pendingPublish?.name}" will be sent for review. Once approved by the Ami Probashi team it becomes visible to app users and starts accepting applications.`}
+        confirmLabel="Submit for review"
         variant="default"
         onConfirm={() => {
-          if (pendingPublish) togglePublish(pendingPublish);
+          if (pendingPublish) submitForReview(pendingPublish);
           setPendingPublish(null);
         }}
       />
     </AppLayout>
+  );
+}
+
+function CollapsibleSection({
+  title, open, onToggle, children,
+}: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+      >
+        <span>{title}</span>
+        {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {open && <div className="px-4 pb-4 space-y-4 border-t pt-4">{children}</div>}
+    </div>
   );
 }

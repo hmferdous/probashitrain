@@ -126,9 +126,11 @@ function PresetCertificate({ enr, center, tpl }: { enr: any; center: any; tpl: R
         has successfully completed the training program
       </p>
       <p className="text-xl font-semibold mt-3">{enr.batches?.courses?.title}</p>
-      <p className="text-sm text-muted-foreground">
-        ({enr.batches?.courses?.duration_hours} hours)
-      </p>
+      {enr.batches?.duration_value != null && (
+        <p className="text-sm text-muted-foreground">
+          ({enr.batches.duration_value} {enr.batches.duration_unit ?? "hours"})
+        </p>
+      )}
       {enr.performance_score != null && (
         <p className="mt-4 text-sm">Performance score: <span className={cn("font-semibold", accentText)}>{enr.performance_score} / 100</span></p>
       )}

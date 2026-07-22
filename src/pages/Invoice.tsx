@@ -29,7 +29,7 @@ export default function Invoice() {
       if (!pay) { setData({ notFound: true }); return; }
       const { data: enr } = await supabase
         .from("enrollments")
-        .select("*, students(*), batches(*, courses(title, price))")
+        .select("*, students(*), batches(*, courses(title))")
         .eq("id", pay.enrollment_id)
         .maybeSingle();
       const { data: center } = await supabase
@@ -50,7 +50,7 @@ export default function Invoice() {
 
   const { pay, enr, center, allPays } = data;
   const totalPaid = allPays.reduce((s: number, p: any) => s + Number(p.amount), 0);
-  const fee = Number(enr?.batches?.courses?.price ?? 0);
+  const fee = Number(enr?.batches?.price ?? 0);
   const due = Math.max(0, fee - totalPaid);
 
   return (

@@ -21,14 +21,18 @@ export const PIPELINE_STATUS_CONFIG: Record<PipelineStatus, StatusStyle> = {
   rejected:         { label: "Rejected",     color: "bg-destructive/15 text-destructive border-destructive/30" },
 };
 
-export type BatchStatus = "draft" | "published" | "in_progress" | "completed" | "archived";
+export type BatchStatus =
+  | "draft" | "unpublished" | "under_review" | "published"
+  | "in_progress" | "completed" | "archived";
 
 export const BATCH_STATUS_CONFIG: Record<BatchStatus, StatusStyle> = {
-  draft:       { label: "Draft",       color: "bg-muted text-muted-foreground border-transparent" },
-  published:   { label: "Published",   color: "bg-info/15 text-info border-info/30" },
-  in_progress: { label: "In Progress", color: "bg-primary/15 text-primary border-primary/30" },
-  completed:   { label: "Completed",   color: "bg-success/15 text-success border-success/30" },
-  archived:    { label: "Archived",    color: "bg-muted text-muted-foreground border-transparent" },
+  draft:        { label: "Draft",        color: "bg-muted text-muted-foreground border-transparent" },
+  unpublished:  { label: "Unpublished",  color: "bg-muted text-muted-foreground border-border" },
+  under_review: { label: "Under Review", color: "bg-warning/15 text-warning border-warning/30" },
+  published:    { label: "Published",    color: "bg-info/15 text-info border-info/30" },
+  in_progress:  { label: "In Progress",  color: "bg-primary/15 text-primary border-primary/30" },
+  completed:    { label: "Completed",    color: "bg-success/15 text-success border-success/30" },
+  archived:     { label: "Archived",     color: "bg-muted text-muted-foreground border-transparent" },
 };
 
 export type FeePaymentStatus = "Paid" | "Partial" | "Unpaid";

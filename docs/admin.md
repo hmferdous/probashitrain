@@ -56,16 +56,18 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
 
 ### Courses — `/app/courses`
 
-**Purpose:** Manage the course catalog.
+**Purpose:** Manage the course catalog. Deliberately barebone — everything scheduling/eligibility/fee-related lives on batches instead (see `docs/database.md`'s "Course/batch redundancy" note for why).
 
 **Admin can:**
-- Create a course (title, description, duration_hours, price, cover image, optional category + tags, optional trade link)
+- Create a course (title, description, category, tags, optional trade link)
+- Pick a category from a searchable combobox, or type a new one and create it inline without leaving the course form — no separate category-management page
+- Add reading materials (file uploads) directly in the course creation/edit form, or later via the "Manage" dialog from the course card
 - Edit and delete courses
-- Filter by category and tag
+- Filter by tag; search by title/description
 
-**Key data model note:** `trade_id` is now nullable. Courses should use `category` (free text) and `tags` (array) instead of requiring a Trade first. The Trade hierarchy is being phased out.
+**Key data model note:** `trade_id` is legacy/nullable. `category_id` references the `categories` table (added to support category-based reporting). Courses no longer have `duration_hours`, `price`, or `cover_image_url` — those are batch-only now.
 
-**Plan limit:** `plan.limits.maxPublishedCourses` caps how many batches can be published to Ami Probashi (not courses themselves).
+**Plan limit:** `plan.limits.maxPublishedCourses` caps course creation count (not batch publishing).
 
 ---
 
@@ -74,18 +76,25 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
 **Purpose:** Manage scheduled runs of a course.
 
 **Admin can:**
-- Create a batch (name, course, start/end date, branch capacity, optional instructors, schedule notes, eligibility/requirements, fee collection mode, tags, application deadline)
-- Set batch status: `draft → published → in_progress → completed → archived`
-- Toggle `published_to_ami_probashi` to make the batch visible on the AP mobile app
+- Create a batch (auto-generated code previewed before saving, name, course, start/end date, branch capacity, optional instructors, schedule notes, eligibility/requirements, duration & fee, document requirements, application deadline) — fields are grouped into collapsible sections (Description, Requirements, Duration & fee, Document requirements, Instructors)
+- **Save as draft** once at least the batch name is entered — the rest can be filled in later from "Edit details" on the Batch Detail page
+- **Copy from previous batch:** once a course already has a batch, a "Copy from previous batch" action pre-fills everything (including dates and branches) from the most recently created batch under that course; the admin can then adjust before saving
+- Search/filter batches by status, course (multiselect), or free text
+- Submit a batch to Ami Probashi for review, and (demo only) simulate their approval
+
+**Batch status lifecycle:** `draft → unpublished → under_review → published → in_progress → completed → archived` — see `docs/database.md` for what each state means. `published_to_ami_probashi` no longer exists; `status` is the only source of truth.
+
+**Demo approval:** there is no real Ami Probashi review/ops tool in this codebase yet. The "Simulate approval" button on an `under_review` batch stands in for that team's real approval action, moving the batch straight to `published`.
 
 **Instructor multiselect:** During batch creation, admins can assign one or more instructors from the center's active instructor list. Assignments are stored in `batch_instructors`. If no instructors are assigned, the batch is visible to all instructors.
 
 **Instructor sees:** batches assigned to them via `batch_instructors` (or all batches if unassigned — enforcement TBD).
 
 **Contextual lifecycle banners in BatchDetail:**
-- Draft → prompt to publish
-- Published (not on AP app) → prompt to toggle Ami Probashi
-- Published + on AP app → confirms live status
+- `draft` → prompt to finish filling out details
+- `unpublished` → prompt to submit for review
+- `under_review` → pending Ami Probashi review
+- `published` → confirms live status
 
 ### Batch Detail — `/app/batches/:id`
 
