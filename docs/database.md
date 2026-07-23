@@ -192,6 +192,36 @@ Courses previously duplicated most of `batches`' scheduling/eligibility/fee fiel
 
 ---
 
+### `grading_templates` / `grading_bands`
+Institute-defined grading schemes (migration `20260717090000`). Not yet attached to batches — that's a later phase; for now this is just the template system + settings page (`/app/grading`).
+
+**`grading_templates`**
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| center_id | uuid NOT NULL | |
+| name | text NOT NULL | |
+| type | grading_template_type | `numeric` or `scale` |
+| min_score / max_score | numeric(6,2) | Only set when `type = 'numeric'` — null for `scale` |
+| created_at / updated_at | timestamptz | |
+
+**`grading_bands`** (ordered rows per template)
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| template_id | uuid NOT NULL | References grading_templates, CASCADE DELETE |
+| label | text NOT NULL | e.g. "A+", "Pass" |
+| min_value / max_value | numeric(6,2) | Only meaningful for `numeric` templates that show a derived label (e.g. 90–100 → "A+"). Null/unused for `scale` templates — there the band **is** the selectable grade, no number involved at all |
+| sort_order | int | Display/rank order — the only ranking that exists for `scale` templates |
+
+**Two fundamentally different grading types, not one model with optional extras:**
+- `numeric` — instructor enters a raw score within `min_score`–`max_score`. Bands are optional and purely a display label derived from the number (e.g. entering 87 shows "B" if bands exist); zero bands means plain numeric/percentage grading.
+- `scale` — instructor picks one of the ordered `grading_bands` labels directly. No number is ever entered or stored for this type.
+
+**Default templates:** `seed_default_grading_templates(_center_id)` inserts three starter templates (Percentage — numeric, no bands; Letter Grade A–F — numeric with six bands; Pass/Fail — scale) — called from `create_training_center` for new centers, and backfilled once for centers that existed before this migration.
+
+---
+
 ### `batch_branches`
 Maps which branches a batch runs at, with per-branch capacity.
 
@@ -454,7 +484,7 @@ SELECT public.get_user_center(auth.uid());
 ```
 
 ### `create_training_center(_name text, _address text, _phone text) → training_centers`
-Atomic onboarding RPC called from `Onboarding.tsx`. Creates the center row, assigns `center_admin`, and **also inserts a default branch** ("Main Branch" / "মূল শাখা") pre-filled from the center's phone/address and the admin's auth email — batch creation hard-requires at least one branch, so this removes that as a hidden manual step for new centers. The branch is fully editable afterwards from Branches management. Migration `20260715090000` also backfilled a default branch for any pre-existing center that had none.
+Atomic onboarding RPC called from `Onboarding.tsx`. Creates the center row, assigns `center_admin`, **inserts a default branch** ("Main Branch" / "মূল শাখা") pre-filled from the center's phone/address and the admin's auth email — batch creation hard-requires at least one branch, so this removes that as a hidden manual step for new centers — and **seeds three default grading templates** via `seed_default_grading_templates()`. The branch and templates are fully editable afterwards. Migrations `20260715090000` and `20260717090000` also backfilled a default branch / grading templates for any pre-existing center that had none.
 
 ### `generate_invoice_no() → text`
 Returns a unique invoice number: `INV-YYYYMM-000XXX` using a Postgres sequence (`invoice_seq`).
@@ -551,6 +581,7 @@ npx supabase gen types typescript --local > src/integrations/supabase/types.ts
 16. `20260716091000_simplify_courses.sql` — drops description_bn/requirements_text/eligibility_*/duration_value/duration_unit/duration_hours/price/cover_image_url from courses; drops course_document_requirements table
 17. `20260716092000_batch_status_lifecycle_values.sql` — adds `unpublished`, `under_review` to batch_status enum (enum-value-only migration, no usage in the same file)
 18. `20260716093000_batch_lifecycle_and_code.sql` — makes batches.start_date/end_date nullable (for drafts); drops batches.tags; backfills old `draft` rows to `unpublished`; drops published_to_ami_probashi; adds batches.code + batch_code_seq + set_batch_code trigger + peek_next_batch_code() function
+19. `20260717090000_grading_templates.sql` — creates `grading_templates` + `grading_bands` tables; `seed_default_grading_templates()` function; extends `create_training_center` to seed defaults for new centers; backfills defaults for existing centers with none
 
 > Note: entries 1–14 above were already out of sync with the actual migration files on disk before this session (several files present in `supabase/migrations/` aren't listed) — that gap predates this work and wasn't introduced or fixed here.
 
