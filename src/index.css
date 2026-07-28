@@ -117,8 +117,8 @@
     visibility: hidden;
   }
 
-  .invoice-page,
-  .invoice-page * {
+  body:has(.invoice-page) .invoice-page,
+  body:has(.invoice-page) .invoice-page * {
     visibility: visible;
   }
 
