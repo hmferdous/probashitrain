@@ -55,7 +55,7 @@ export default function Invoice() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="invoice-page p-8 max-w-4xl mx-auto" data-print-document="invoice">
         <div className="flex items-center justify-between mb-4 print:hidden">
           <Link to="/app/payments" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
             <ArrowLeft className="h-4 w-4" /> Back to payments

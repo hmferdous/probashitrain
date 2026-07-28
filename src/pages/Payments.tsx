@@ -16,6 +16,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Wallet, Plus, FileText, Search, Smartphone, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -72,7 +75,7 @@ export default function Payments() {
     const filtered = enrolls ?? [];
     const ids = filtered.map((e: any) => e.id);
     const { data: pays } = ids.length
-      ? await (supabase.from as any)("payments").select("*").in("enrollment_id", ids)
+      ? await (supabase.from as any)("payments").select("*").in("enrollment_id", ids).order("paid_at", { ascending: false })
       : { data: [] as any[] };
     const byEnr: Record<string, any[]> = {};
     (pays ?? []).forEach((p: any) => {
@@ -185,9 +188,22 @@ export default function Payments() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     {r.payments.length > 0 && (
-                      <Link to={`/app/payments/${r.payments[0].id}`}>
-                        <Button size="sm" variant="outline"><FileText className="h-4 w-4 mr-1" /> Invoices</Button>
-                      </Link>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            <FileText className="h-4 w-4 mr-1" /> Invoices ({r.payments.length})
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {r.payments.map((payment) => (
+                            <DropdownMenuItem key={payment.id} asChild>
+                              <Link to={`/app/payments/${payment.id}`}>
+                                {payment.invoice_no} · ৳ {Number(payment.amount).toLocaleString()}
+                              </Link>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                     <Button size="sm" onClick={() => setOpenPay(r)}>
                       <Plus className="h-4 w-4 mr-1" /> Record
