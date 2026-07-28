@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Prototype for the Private Training Institutes Mangement System SaaS
 
-TODO: Document your project here
+Developed for Ami Probashi Dev Team
