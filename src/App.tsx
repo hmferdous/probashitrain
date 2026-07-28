@@ -14,6 +14,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Courses from "./pages/Courses";
 import Batches from "./pages/Batches";
+import GradingSettings from "./pages/GradingSettings";
 import BatchDetail from "./pages/BatchDetail";
 import Students from "./pages/Students";
 import StudentProfile from "./pages/StudentProfile";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/app/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
             <Route path="/app/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
+            <Route path="/app/grading" element={<ProtectedRoute><GradingSettings /></ProtectedRoute>} />
             <Route path="/app/batches/:id" element={<ProtectedRoute><BatchDetail /></ProtectedRoute>} />
             <Route path="/app/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
             <Route path="/app/students/:id" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />

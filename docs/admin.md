@@ -71,6 +71,20 @@ A user can only belong to one center. `profiles.center_id` determines tenancy. A
 
 ---
 
+### Grading — `/app/grading`
+
+**Purpose:** Define how students are graded. Every center gets three starter templates on signup (Percentage, Letter Grade A–F, Pass/Fail), fully editable/deletable.
+
+**Admin can:**
+- Create a template as one of two fundamentally different types (can't be changed after creation — make a new template instead):
+  - **Numeric** — a raw score within a min/max range (e.g. 0–100). Optionally add bands that show a derived label for a range (e.g. 90–100 → "A+") — the number is still what's entered and stored; bands are purely a display label on top.
+  - **Scale** — an ordered list of labels only (e.g. "Pass"/"Fail", "Excellent"–"Poor"). No number is ever entered or stored for this type — the instructor picks a label directly.
+- Reorder bands/labels (▲▼), edit, and delete templates
+
+**Not yet built:** attaching a template to a batch, and reworking the batch Grade dialog to grade against the batch's attached template. Currently `enrollments.performance_score` is a free 0–100 number unrelated to this system — that integration is a later phase.
+
+---
+
 ### Batches — `/app/batches`
 
 **Purpose:** Manage scheduled runs of a course.
