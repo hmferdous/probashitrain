@@ -12,13 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  Plus, CalendarDays, Smartphone, Users, ArrowRight, X, ChevronDown,
+  Plus, CalendarDays, BookOpen, Smartphone, Users, ArrowRight, X, ChevronDown,
   ChevronRight as ChevronRightIcon, Search, Copy, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -391,81 +391,106 @@ export default function Batches() {
               <DialogTrigger asChild>
                 <Button disabled={courses.length === 0}><Plus className="h-4 w-4 mr-2" /> New batch</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>New batch</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+                <DialogHeader className="sticky top-0 z-10 border-b bg-gradient-subtle px-6 py-5">
+                  <DialogTitle className="flex items-center gap-3 text-xl">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <CalendarDays className="h-5 w-5" />
+                    </span>
+                    <span>New batch</span>
+                  </DialogTitle>
+                  <DialogDescription className="pl-[3.25rem]">
+                    Set up a training cohort and prepare it for Ami Probashi review.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreate} className="space-y-5 p-6">
                   {previewCode && (
-                    <p className="text-xs text-muted-foreground font-mono">
-                      Will be assigned: <span className="font-semibold text-foreground">{previewCode}</span>
-                      <span className="italic"> (only if saved)</span>
-                    </p>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>Course *</Label>
-                    <Select value={selectedCourse} onValueChange={onSelectCourse}>
-                      <SelectTrigger><SelectValue placeholder="Choose course" /></SelectTrigger>
-                      <SelectContent>
-                        {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {previousBatchForCourse && (
-                    <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
-                      <p className="text-xs text-muted-foreground">
-                        Found a previous batch (<span className="font-medium text-foreground">{previousBatchForCourse.name}</span>) for this course.
-                      </p>
-                      <Button type="button" size="sm" variant="outline" onClick={copyFromPreviousBatch} disabled={copying}>
-                        <Copy className="h-3.5 w-3.5 mr-1.5" /> {copying ? "Copying…" : "Copy from previous batch"}
-                      </Button>
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Sparkles className="h-4 w-4 text-accent-foreground" />
+                        <span>Batch code preview</span>
+                      </div>
+                      <span className="font-mono text-xs font-semibold text-foreground">
+                        {previewCode} <span className="font-normal italic text-muted-foreground">(assigned on save)</span>
+                      </span>
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Batch name *</Label>
-                    <Input
-                      id="name" maxLength={100} placeholder="Morning Batch — Jan 2026"
-                      value={batchName} onChange={(e) => setBatchName(e.target.value)}
-                    />
-                  </div>
+                  <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Core details</h3>
+                      <Badge variant="outline" className="ml-auto border-primary/20 bg-background/60 text-[10px] text-primary">Required</Badge>
+                    </div>
 
-                  <DateSelect label="Start date" value={startDate} onChange={setStartDate} />
-                  <DateSelect label="End date" value={endDate} onChange={setEndDate} />
+                    <div className="space-y-2">
+                      <Label>Course *</Label>
+                      <Select value={selectedCourse} onValueChange={onSelectCourse}>
+                        <SelectTrigger><SelectValue placeholder="Choose course" /></SelectTrigger>
+                        <SelectContent>
+                          {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Branches & capacity *</Label>
-                    {branches.length === 0 ? (
-                      <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
-                        No branches yet.{" "}
-                        <Link to="/app/branches-management" className="text-primary underline">Add a branch</Link>{" "}
-                        before creating a batch.
-                      </div>
-                    ) : (
-                      <div className="border rounded-md divide-y max-h-52 overflow-y-auto">
-                        {branches.map((br) => {
-                          const checked = br.id in branchCaps;
-                          return (
-                            <div key={br.id} className="flex items-center gap-3 p-3">
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => toggleBranch(br.id, v === true)}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium truncate">{br.name_en}</div>
-                                {br.name_bn && <div className="text-xs text-muted-foreground truncate">{br.name_bn}</div>}
-                              </div>
-                              <Input
-                                type="number" min={1} className="w-24" placeholder="Capacity"
-                                disabled={!checked}
-                                value={checked ? branchCaps[br.id] : ""}
-                                onChange={(e) => setBranchCaps((p) => ({ ...p, [br.id]: Number(e.target.value) || 0 }))}
-                              />
-                            </div>
-                          );
-                        })}
+                    {previousBatchForCourse && (
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-background/70 px-3 py-2">
+                        <p className="text-xs text-muted-foreground">
+                          Found a previous batch (<span className="font-medium text-foreground">{previousBatchForCourse.name}</span>) for this course.
+                        </p>
+                        <Button type="button" size="sm" variant="outline" onClick={copyFromPreviousBatch} disabled={copying}>
+                          <Copy className="h-3.5 w-3.5 mr-1.5" /> {copying ? "Copying…" : "Copy from previous batch"}
+                        </Button>
                       </div>
                     )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Batch name *</Label>
+                      <Input
+                        id="name" maxLength={100} placeholder="Morning Batch — Jan 2026"
+                        value={batchName} onChange={(e) => setBatchName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <DateSelect label="Start date" value={startDate} onChange={setStartDate} />
+                      <DateSelect label="End date" value={endDate} onChange={setEndDate} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Branches & capacity *</Label>
+                      {branches.length === 0 ? (
+                        <div className="text-sm text-muted-foreground border border-dashed rounded-md p-3">
+                          No branches yet.{" "}
+                          <Link to="/app/branches-management" className="text-primary underline">Add a branch</Link>{" "}
+                          before creating a batch.
+                        </div>
+                      ) : (
+                        <div className="border rounded-md divide-y max-h-52 overflow-y-auto bg-background/70">
+                          {branches.map((br) => {
+                            const checked = br.id in branchCaps;
+                            return (
+                              <div key={br.id} className="flex items-center gap-3 p-3">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => toggleBranch(br.id, v === true)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{br.name_en}</div>
+                                  {br.name_bn && <div className="text-xs text-muted-foreground truncate">{br.name_bn}</div>}
+                                </div>
+                                <Input
+                                  type="number" min={1} className="w-24" placeholder="Capacity"
+                                  disabled={!checked}
+                                  value={checked ? branchCaps[br.id] : ""}
+                                  onChange={(e) => setBranchCaps((p) => ({ ...p, [br.id]: Number(e.target.value) || 0 }))}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* ── Description ── */}
@@ -625,7 +650,7 @@ export default function Batches() {
                     )}
                   </CollapsibleSection>
 
-                  <div className="flex gap-2">
+                  <div className="sticky bottom-0 -mx-6 -mb-6 flex gap-2 border-t bg-background/95 px-6 py-4 backdrop-blur">
                     <Button
                       type="button"
                       variant="outline"
@@ -780,13 +805,16 @@ function CollapsibleSection({
   title, open, onToggle, children,
 }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
-    <div className="border rounded-md overflow-hidden">
+    <div className={`overflow-hidden rounded-lg border bg-card transition-colors ${open ? "border-primary/30 shadow-sm" : "border-border"}`}>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+        className={`flex w-full items-center justify-between px-4 py-3 text-sm font-medium transition-colors ${open ? "bg-primary/5" : "hover:bg-muted/40"}`}
       >
-        <span>{title}</span>
+        <span className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${open ? "bg-accent" : "bg-muted-foreground/40"}`} />
+          {title}
+        </span>
         {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
       </button>
       {open && <div className="px-4 pb-4 space-y-4 border-t pt-4">{children}</div>}
